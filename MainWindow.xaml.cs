@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -22,7 +23,7 @@ using Microsoft.Win32;
 namespace FrostClient;
 
 // ──────────────────────────────────────────────────────────
-// DATA MODEL
+// DATA MODELS
 // ──────────────────────────────────────────────────────────
 public sealed class VersionEntry
 {
@@ -37,11 +38,35 @@ public sealed class VersionEntry
     }
 }
 
+// Saved launcher account: offline or Microsoft.
+public sealed class AccountEntry
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string DisplayName { get; set; } = "";
+    public string Type { get; set; } = "offline";
+    public string? Uuid { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool IsActive { get; set; }
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string TypeLabel => Type == "microsoft" ? "Microsoft" : "Offline";
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string Letter => string.IsNullOrWhiteSpace(DisplayName) ? "?" : DisplayName[..1].ToUpperInvariant();
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string AvatarUrl => Type == "microsoft" && !string.IsNullOrWhiteSpace(Uuid)
+        ? $"https://mc-heads.net/avatar/{Uuid.Replace("-", "")}/64"
+        : $"https://minotar.net/avatar/{Uri.EscapeDataString(DisplayName)}/64";
+}
+
 // ──────────────────────────────────────────────────────────
 // MAIN WINDOW
 // ──────────────────────────────────────────────────────────
 public partial class MainWindow : Window
 {
+    private static readonly HttpClient ProfileHttp = new() { Timeout = TimeSpan.FromSeconds(8) };
     // ── Paths ──────────────────────────────────────────────
     private readonly string _gameDir =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ".minecraft");
@@ -61,19 +86,24 @@ public partial class MainWindow : Window
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                      "FrostClient", "settings.json");
 
+
     // ── State ──────────────────────────────────────────────
     private readonly JELoginHandler _loginHandler;
     private MSession? _session;
     private bool _busy;
     private bool _gameRunning;
     private bool _setupComplete;
-    private bool _wasMicrosoftLoggedIn;
 
     // Cache local de versões em memória (evita depender do ItemsControl do XAML)
     private List<VersionEntry> _versions = new();
 
-    // version rename
+    // Saved offline and Microsoft accounts.
+    private List<AccountEntry> _accounts = new();
+
+    // shared rename/edit overlay target
     private string? _renameTargetId;
+    private string? _pendingConfirmVersionId;
+    private string? _pendingConfirmAccountId;
 
     // ── Discord ────────────────────────────────────────────
     private DiscordRpcClient? _discord;
@@ -164,8 +194,8 @@ public partial class MainWindow : Window
         AnimateSidebar();
         AnimatePage(HomePage);
 
-        UpdateProfileUI();
-        await TryRestoreMsSessionAsync();
+        RenderAccounts();
+        await RestoreActiveAccountAsync();
         UpdateProfileUI();
 
         await RefreshVersionsAsync();
@@ -222,45 +252,84 @@ public partial class MainWindow : Window
 
     private void UpdateProfileUI()
     {
-        bool ms = _session?.UserType == "msa";
+        bool microsoft = _session?.UserType == "msa";
         string name = _session?.Username ?? "Not logged in";
 
-        if (TopPlayerName != null)     TopPlayerName.Text     = name;
+        if (TopPlayerName != null) TopPlayerName.Text = name;
         if (AccountPlayerName != null) AccountPlayerName.Text = name;
         if (AccountStatusDetail != null)
             AccountStatusDetail.Text = _session == null ? "Not logged in"
-                                       : ms ? $"Microsoft · {name}" : $"Offline · {name}";
+                : microsoft ? $"Microsoft · {name}" : $"Offline · {name}";
 
-        string id = ms && !string.IsNullOrEmpty(_session!.UUID) ? _session.UUID
-                    : (_session?.Username ?? "Steve");
-        LoadAvatar(id);
+        _ = LoadPlayerProfileAsync(name, microsoft ? _session?.UUID : null);
     }
 
-    private void LoadAvatar(string id, bool fallback = false)
+    // Loads the player's actual Minecraft skin head. Try multiple skin renderers so
+    // a temporary outage from one provider does not leave the profile avatar blank.
+    private async Task LoadPlayerProfileAsync(string playerName, string? knownUuid)
     {
-        try
+        if (string.IsNullOrWhiteSpace(playerName) || playerName == "Not logged in") return;
+
+        string? uuid = string.IsNullOrWhiteSpace(knownUuid) ? null : knownUuid.Replace("-", "");
+        if (string.IsNullOrWhiteSpace(uuid) && IsValidName(playerName))
         {
-            var url = $"https://mc-heads.net/avatar/{Uri.EscapeDataString(id)}/100";
-            var bmp = new BitmapImage();
-            bmp.BeginInit();
-            bmp.UriSource = new Uri(url);
-            bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.EndInit();
-            if (bmp.IsDownloading && !fallback)
-                bmp.DownloadFailed += (_, _) => Dispatcher.Invoke(() => LoadAvatar("Steve", true));
-
-            if (TopAvatar != null)     TopAvatar.Source     = bmp;
-            if (AccountAvatar != null) AccountAvatar.Source = bmp;
-
-            // Full body render for the home page
-            var body = new BitmapImage();
-            body.BeginInit();
-            body.UriSource   = new Uri($"https://mc-heads.net/body/{Uri.EscapeDataString(id)}/260");
-            body.CacheOption = BitmapCacheOption.OnLoad;
-            body.EndInit();
-            if (HomeBody != null) HomeBody.Source = body;
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get,
+                    $"https://api.mojang.com/users/profiles/minecraft/{Uri.EscapeDataString(playerName)}");
+                request.Headers.UserAgent.ParseAdd("FrostClient/1.0");
+                using var response = await ProfileHttp.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+                    if (json.RootElement.TryGetProperty("id", out var id)) uuid = id.GetString();
+                }
+            }
+            catch { }
         }
-        catch { if (!fallback) LoadAvatar("Steve", true); }
+
+        var urls = new List<string>();
+        if (!string.IsNullOrWhiteSpace(uuid))
+        {
+            urls.Add($"https://mc-heads.net/avatar/{Uri.EscapeDataString(uuid)}/64");
+            urls.Add($"https://crafatar.com/avatars/{Uri.EscapeDataString(uuid)}?size=64&overlay=true");
+        }
+        // Username renderer is also a useful fallback for offline-mode names.
+        urls.Add($"https://minotar.net/avatar/{Uri.EscapeDataString(playerName)}/64");
+        urls.Add($"https://mc-heads.net/avatar/{Uri.EscapeDataString(playerName)}/64");
+
+        foreach (var url in urls)
+        {
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                request.Headers.UserAgent.ParseAdd("FrostClient/1.0");
+                using var response = await ProfileHttp.SendAsync(request);
+                if (!response.IsSuccessStatusCode) continue;
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+                if (bytes.Length < 100) continue;
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    SetAvatarImage(TopPlayerAvatar, bytes);
+                    SetAvatarImage(AccountPlayerAvatar, bytes);
+                });
+                return;
+            }
+            catch { /* Try the next skin renderer. */ }
+        }
+    }
+
+    private static void SetAvatarImage(Image? target, byte[] bytes)
+    {
+        if (target == null) return;
+        using var stream = new MemoryStream(bytes);
+        var bitmap = new BitmapImage();
+        bitmap.BeginInit();
+        bitmap.CacheOption = BitmapCacheOption.OnLoad;
+        bitmap.StreamSource = stream;
+        bitmap.EndInit();
+        bitmap.Freeze();
+        target.Source = bitmap;
     }
 
     // ──────────────────────────────────────────────────────────
@@ -316,11 +385,15 @@ public partial class MainWindow : Window
         WizardScreen_Login.Visibility = Visibility.Collapsed;
         WizardScreen_Java.Visibility  = Visibility.Visible;
     }
+
+    // MicrosoftLoginAsync already creates/activates the account, so we only finish the wizard here.
     private async void Wizard_LoginMicrosoft_Click(object s, RoutedEventArgs e)
     {
         await MicrosoftLoginAsync();
         if (_session?.UserType == "msa") FinishWizard();
     }
+
+
     private void Wizard_LoginOffline_Click(object s, RoutedEventArgs e)
     {
         var name = UsernameBox?.Text?.Trim();
@@ -329,11 +402,16 @@ public partial class MainWindow : Window
             MessageBox.Show("Name must be 3–16 characters (letters, numbers or _).", "Invalid Name", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
+        var acc = new AccountEntry { DisplayName = name!, Type = "offline" };
+        _accounts.Add(acc);
+        _cfg.Accounts = _accounts;
+        _cfg.ActiveAccountId = acc.Id;
         _session = MSession.CreateOfflineSession(name!);
-        if (AccountOfflineNameBox != null) AccountOfflineNameBox.Text = name!;
+        RenderAccounts();
         UpdateProfileUI();
         FinishWizard();
     }
+
     private void FinishWizard()
     {
         _setupComplete = true;
@@ -350,17 +428,23 @@ public partial class MainWindow : Window
     // ──────────────────────────────────────────────────────────
     private sealed class AppSettings
     {
-        public int    RamGb              { get; set; } = 4;
-        public string JavaArguments      { get; set; } = "";
-        public string Username           { get; set; } = "FrostPlayer";
-        public bool   SetupComplete      { get; set; } = false;
-        public string JavaPath           { get; set; } = "";
-        public bool   IsMicrosoftLoggedIn{ get; set; } = false;
-        public int    ResolutionIndex    { get; set; } = 0;
-        public int    OnLaunchIndex      { get; set; } = 0;
-        public bool   DiscordPresence    { get; set; } = true;
+        public int    RamGb           { get; set; } = 4;
+        public string JavaArguments   { get; set; } = "";
+        public bool   SetupComplete   { get; set; } = false;
+        public string JavaPath        { get; set; } = "";
+        public int    ResolutionIndex { get; set; } = 0;
+        public int    OnLaunchIndex   { get; set; } = 0;
+        public bool   DiscordPresence { get; set; } = true;
         // version display names: { realId -> displayName }
         public Dictionary<string, string> VersionNames { get; set; } = new();
+
+        // Saved accounts and which one is currently active.
+        public List<AccountEntry> Accounts        { get; set; } = new();
+        public string             ActiveAccountId  { get; set; } = "";
+
+        // Legacy fields kept only so old settings.json files can be migrated once.
+        public string Username            { get; set; } = "";
+        public bool   IsMicrosoftLoggedIn { get; set; } = false;
     }
 
     private AppSettings _cfg = new();
@@ -376,15 +460,32 @@ public partial class MainWindow : Window
             JavaArgumentsBox.Text   = _cfg.JavaArguments;
             JavaPathBox.Text        = _cfg.JavaPath;
             WizardJavaPathBox.Text  = _cfg.JavaPath;
-            UsernameBox.Text        = string.IsNullOrWhiteSpace(_cfg.Username) ? "FrostPlayer" : _cfg.Username;
-            AccountOfflineNameBox.Text = UsernameBox.Text;
             ResolutionBox.SelectedIndex = Math.Clamp(_cfg.ResolutionIndex, 0, ResolutionBox.Items.Count - 1);
             OnLaunchBox.SelectedIndex   = Math.Clamp(_cfg.OnLaunchIndex,   0, OnLaunchBox.Items.Count - 1);
             DiscordToggle.IsChecked  = _cfg.DiscordPresence;
 
-            _wasMicrosoftLoggedIn = _cfg.IsMicrosoftLoggedIn;
-            if (!_wasMicrosoftLoggedIn && IsValidName(UsernameBox.Text) && _cfg.SetupComplete)
-                _session = MSession.CreateOfflineSession(UsernameBox.Text);
+            _accounts = _cfg.Accounts ?? new();
+            foreach (var account in _accounts)
+            {
+                if (account.Type != "microsoft")
+                    account.Type = "offline";
+            }
+
+            // Migrate from the old single-account settings format, once.
+            if (_accounts.Count == 0 && !string.IsNullOrWhiteSpace(_cfg.Username))
+            {
+                var migrated = new AccountEntry
+                {
+                    DisplayName = _cfg.Username,
+                    Type        = _cfg.IsMicrosoftLoggedIn ? "microsoft" : "offline",
+                };
+                _accounts.Add(migrated);
+                _cfg.Accounts = _accounts;
+                _cfg.ActiveAccountId = migrated.Id;
+            }
+
+            if (UsernameBox != null) UsernameBox.Text = "FrostPlayer";
+            if (NewAccountNameBox != null) NewAccountNameBox.Text = "";
 
             _setupComplete = _cfg.SetupComplete;
             if (_setupComplete) { WizardOverlay.Visibility = Visibility.Collapsed; ShowMainUI(); }
@@ -398,16 +499,14 @@ public partial class MainWindow : Window
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_settingsFile)!);
-            _cfg.RamGb              = (int)(RamSlider?.Value ?? 4);
-            _cfg.JavaArguments      = JavaArgumentsBox?.Text?.Trim() ?? "";
-            _cfg.Username           = AccountOfflineNameBox?.Text?.Trim()
-                                      ?? UsernameBox?.Text?.Trim() ?? "FrostPlayer";
-            _cfg.SetupComplete      = _setupComplete;
-            _cfg.JavaPath           = JavaPathBox?.Text?.Trim() ?? WizardJavaPathBox?.Text?.Trim() ?? "";
-            _cfg.IsMicrosoftLoggedIn = _session?.UserType == "msa";
-            _cfg.ResolutionIndex    = ResolutionBox?.SelectedIndex ?? 0;
-            _cfg.OnLaunchIndex      = OnLaunchBox?.SelectedIndex   ?? 0;
-            _cfg.DiscordPresence    = DiscordToggle?.IsChecked != false;
+            _cfg.RamGb           = (int)(RamSlider?.Value ?? 4);
+            _cfg.JavaArguments   = JavaArgumentsBox?.Text?.Trim() ?? "";
+            _cfg.SetupComplete   = _setupComplete;
+            _cfg.JavaPath        = JavaPathBox?.Text?.Trim() ?? WizardJavaPathBox?.Text?.Trim() ?? "";
+            _cfg.ResolutionIndex = ResolutionBox?.SelectedIndex ?? 0;
+            _cfg.OnLaunchIndex   = OnLaunchBox?.SelectedIndex   ?? 0;
+            _cfg.DiscordPresence = DiscordToggle?.IsChecked != false;
+            _cfg.Accounts        = _accounts;
             File.WriteAllText(_settingsFile,
                 JsonSerializer.Serialize(_cfg, new JsonSerializerOptions { WriteIndented = true }));
         }
@@ -445,9 +544,75 @@ public partial class MainWindow : Window
     }
 
     // ──────────────────────────────────────────────────────────
-    // ACCOUNT
+    // ACCOUNTS (offline + Microsoft)
     // ──────────────────────────────────────────────────────────
-    private async void MicrosoftLogin_Click(object s, RoutedEventArgs e) => await MicrosoftLoginAsync();
+    private AccountEntry? GetActiveAccount() =>
+        _accounts.FirstOrDefault(a => a.Id == _cfg.ActiveAccountId) ?? _accounts.FirstOrDefault();
+
+    // Rebuilds the home-page rail and the Account-page list, and flags the active entry.
+    private void RenderAccounts()
+    {
+        foreach (var a in _accounts) a.IsActive = a.Id == _cfg.ActiveAccountId;
+
+        if (AccountsStripList != null) { AccountsStripList.ItemsSource = null; AccountsStripList.ItemsSource = _accounts; }
+        if (AccountsListBox   != null) { AccountsListBox.ItemsSource   = null; AccountsListBox.ItemsSource   = _accounts; }
+    }
+
+
+    // Restores the currently selected offline or Microsoft account.
+    private async Task RestoreActiveAccountAsync()
+    {
+        var acc = GetActiveAccount();
+        if (acc == null) { _session = null; return; }
+
+        if (acc.Type == "microsoft")
+        {
+            try
+            {
+                SetStatus("Restoring Microsoft session…");
+                _session = await _loginHandler.AuthenticateSilently();
+            }
+            catch
+            {
+                _session = null;
+                SetStatus("Microsoft session expired. Please log in again.");
+            }
+        }
+        else
+        {
+            _session = MSession.CreateOfflineSession(acc.DisplayName);
+        }
+    }
+
+    private void OpenAddAccountPage_Click(object s, RoutedEventArgs e)
+    {
+        ShowPage("Account");
+        NewAccountNameBox?.Focus();
+    }
+
+    private void AddOfflineAccountConfirm_Click(object s, RoutedEventArgs e)
+    {
+        var name = NewAccountNameBox?.Text?.Trim() ?? "";
+        if (!IsValidName(name))
+        {
+            MessageBox.Show("Name must be 3–16 characters (letters, numbers or _).", "Invalid Name", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var acc = new AccountEntry { DisplayName = name, Type = "offline" };
+        _accounts.Add(acc);
+        _cfg.Accounts = _accounts;
+        _cfg.ActiveAccountId = acc.Id;
+        _session = MSession.CreateOfflineSession(name);
+
+        UpdateProfileUI();
+        SaveSilently();
+        RenderAccounts();
+        SetStatus($"Offline account '{name}' added.");
+        if (NewAccountNameBox != null) NewAccountNameBox.Text = "";
+    }
+
+    private async void AddMicrosoftAccountConfirm_Click(object s, RoutedEventArgs e) => await MicrosoftLoginAsync();
 
     private async Task MicrosoftLoginAsync()
     {
@@ -455,43 +620,79 @@ public partial class MainWindow : Window
         try
         {
             SetStatus("Opening Microsoft login…");
-            _session = await _loginHandler.AuthenticateInteractively();
-            _wasMicrosoftLoggedIn = true;
+            var session = await _loginHandler.AuthenticateInteractively();
+            _session = session;
+
+            var existing = _accounts.FirstOrDefault(a => a.Type == "microsoft" && a.Uuid == session.UUID);
+            if (existing != null)
+            {
+                existing.DisplayName = session.Username;
+                _cfg.ActiveAccountId = existing.Id;
+            }
+            else
+            {
+                var acc = new AccountEntry { DisplayName = session.Username, Type = "microsoft", Uuid = session.UUID };
+                _accounts.Add(acc);
+                _cfg.ActiveAccountId = acc.Id;
+            }
+            _cfg.Accounts = _accounts;
+
             UpdateProfileUI();
+            RenderAccounts();
             SaveSilently();
-            SetStatus($"Logged in as {_session.Username}.");
+            SetStatus($"Logged in as {session.Username}.");
         }
         catch (Exception ex)
         {
-            _session = null;
-            UpdateProfileUI();
             SetStatus("Login failed.");
             MessageBox.Show(ex.Message, "Login Error");
         }
         finally { if (MicrosoftLoginButton != null) MicrosoftLoginButton.IsEnabled = true; }
     }
 
-    private async Task TryRestoreMsSessionAsync()
+    private async void SelectAccount_Click(object s, RoutedEventArgs e)
     {
-        if (!_wasMicrosoftLoggedIn) return;
-        try
-        {
-            SetStatus("Restoring Microsoft session…");
-            _session = await _loginHandler.AuthenticateSilently();
-        }
-        catch { _session = null; SetStatus("Microsoft session expired. Please log in again."); }
-    }
+        if (s is not FrameworkElement { Tag: string id }) return;
+        var acc = _accounts.FirstOrDefault(a => a.Id == id);
+        if (acc == null) return;
 
-    private void SaveOfflineName_Click(object s, RoutedEventArgs e)
-    {
-        var name = AccountOfflineNameBox?.Text?.Trim() ?? "";
-        if (!IsValidName(name)) { MessageBox.Show("Name must be 3–16 chars (letters, numbers, _).", "Invalid Name"); return; }
-        if (UsernameBox != null) UsernameBox.Text = name;
-        _session = MSession.CreateOfflineSession(name);
-        _wasMicrosoftLoggedIn = false;
+        _cfg.ActiveAccountId = acc.Id;
+        await RestoreActiveAccountAsync();
         UpdateProfileUI();
         SaveSilently();
-        MessageBox.Show("Offline name saved!", "Frost Client");
+        RenderAccounts();
+        SetStatus($"Active account: {acc.DisplayName}.");
+    }
+
+    private void DeleteAccount_Click(object s, RoutedEventArgs e)
+    {
+        if (s is not FrameworkElement { Tag: string id }) return;
+        var acc = _accounts.FirstOrDefault(a => a.Id == id);
+        if (acc == null) return;
+
+        _pendingConfirmAccountId = id;
+        _pendingConfirmVersionId = null;
+        ConfirmTitle.Text = "Delete account?";
+        ConfirmMessage.Text = $"Remove '{acc.DisplayName}' from this launcher? This does not delete the online account itself.";
+        ConfirmOverlay.Visibility = Visibility.Visible;
+    }
+
+    private async Task DeleteAccountConfirmedAsync(string id)
+    {
+        var acc = _accounts.FirstOrDefault(a => a.Id == id);
+        if (acc == null) return;
+        _accounts.Remove(acc);
+        _cfg.Accounts = _accounts;
+
+        if (_cfg.ActiveAccountId == id)
+        {
+            _cfg.ActiveAccountId = _accounts.FirstOrDefault()?.Id ?? "";
+            await RestoreActiveAccountAsync();
+            UpdateProfileUI();
+        }
+
+        SaveSilently();
+        RenderAccounts();
     }
 
     // ──────────────────────────────────────────────────────────
@@ -702,12 +903,18 @@ public partial class MainWindow : Window
         SetStatus($"Selected {entry.DisplayName}.");
     }
 
-    private async void DeleteVersion_Click(object s, RoutedEventArgs e)
+    private void DeleteVersion_Click(object s, RoutedEventArgs e)
     {
         if (s is not FrameworkElement { Tag: string realId }) return;
-        var r = MessageBox.Show($"Delete '{GetDisplayName(realId)}'?\n\nThis removes the version files only. Your worlds and mods are kept.",
-                                "Frost Client", MessageBoxButton.YesNo, MessageBoxImage.Question);
-        if (r != MessageBoxResult.Yes) return;
+        _pendingConfirmVersionId = realId;
+        _pendingConfirmAccountId = null;
+        ConfirmTitle.Text = "Delete this version?";
+        ConfirmMessage.Text = $"Delete '{GetDisplayName(realId)}'? Version files will be removed. Your worlds and mods will be kept.";
+        ConfirmOverlay.Visibility = Visibility.Visible;
+    }
+
+    private async Task DeleteVersionConfirmedAsync(string realId)
+    {
         try
         {
             var dir = Path.Combine(_gameDir, "versions", realId);
@@ -721,16 +928,37 @@ public partial class MainWindow : Window
         catch (Exception ex) { MessageBox.Show(ex.Message, "Delete Error"); }
     }
 
-    // ── RENAME (shared for pencil button on home + list) ───────
+    private void ConfirmCancel_Click(object s, RoutedEventArgs e)
+    {
+        ConfirmOverlay.Visibility = Visibility.Collapsed;
+        _pendingConfirmVersionId = null;
+        _pendingConfirmAccountId = null;
+    }
+
+    private async void ConfirmAccept_Click(object s, RoutedEventArgs e)
+    {
+        ConfirmOverlay.Visibility = Visibility.Collapsed;
+        var versionId = _pendingConfirmVersionId;
+        var accountId = _pendingConfirmAccountId;
+        _pendingConfirmVersionId = null;
+        _pendingConfirmAccountId = null;
+        if (versionId != null) await DeleteVersionConfirmedAsync(versionId);
+        else if (accountId != null) await DeleteAccountConfirmedAsync(accountId);
+    }
+
+    // ── RENAME VERSION OVERLAY ─────────────────────────────────
     private void OpenRenameOverlay(string realId)
     {
-        _renameTargetId      = realId;
-        RenameSubText.Text   = $"Real id: {realId}";
-        RenameBox.Text       = GetDisplayName(realId);
+        _renameTargetId = realId;
+        RenameTitle.Text   = "Rename Version";
+        RenameLabel.Text   = "DISPLAY NAME";
+        RenameSubText.Text = $"Real id: {realId}";
+        RenameBox.Text     = GetDisplayName(realId);
         RenameOverlay.Visibility = Visibility.Visible;
         RenameBox.Focus();
         RenameBox.SelectAll();
     }
+
 
     // Pencil on the home page ComboBox row
     private void RenameVersion_Click(object s, RoutedEventArgs e)
@@ -764,18 +992,19 @@ public partial class MainWindow : Window
     private void ApplyRename()
     {
         if (_renameTargetId == null) return;
-        var newName = RenameBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(newName)) newName = _renameTargetId;
+        var newVal = RenameBox.Text.Trim();
 
-        if (newName == _renameTargetId)
-            _cfg.VersionNames.Remove(_renameTargetId);   // volta ao original
+        if (string.IsNullOrWhiteSpace(newVal)) newVal = _renameTargetId;
+        if (newVal == _renameTargetId)
+            _cfg.VersionNames.Remove(_renameTargetId);
         else
-            _cfg.VersionNames[_renameTargetId] = newName;
+            _cfg.VersionNames[_renameTargetId] = newVal;
 
         SaveSilently();
+        _ = RefreshVersionsAsync();
+
         RenameOverlay.Visibility = Visibility.Collapsed;
         _renameTargetId = null;
-        _ = RefreshVersionsAsync();
     }
 
     // ──────────────────────────────────────────────────────────
@@ -787,14 +1016,19 @@ public partial class MainWindow : Window
 
         if (_session == null)
         {
-            var name = AccountOfflineNameBox?.Text?.Trim() ?? "";
-            if (!IsValidName(name))
+            var activeAcc = GetActiveAccount();
+            if (activeAcc == null)
             {
-                MessageBox.Show("No account selected. Log in with Microsoft or set a valid offline name in Account.", "Frost Client");
+                MessageBox.Show("No account selected. Add one in the Account tab.", "Frost Client");
                 return;
             }
-            _session = MSession.CreateOfflineSession(name);
+            await RestoreActiveAccountAsync();
             UpdateProfileUI();
+            if (_session == null)
+            {
+                MessageBox.Show("Could not restore the selected account. Try logging in again.", "Frost Client");
+                return;
+            }
         }
 
         var entry = GetSelectedEntry();
@@ -827,7 +1061,7 @@ public partial class MainWindow : Window
                 options.JavaPath = javaPath;
 
             // JVM args
-            var jvmArgs = JavaArgumentsBox?.Text?.Trim();
+            var jvmArgs = JavaArgumentsBox?.Text?.Trim() ?? "";
             if (!string.IsNullOrWhiteSpace(jvmArgs))
                 options.ExtraJvmArguments = new[] { MArgument.FromCommandLine(jvmArgs) };
 
