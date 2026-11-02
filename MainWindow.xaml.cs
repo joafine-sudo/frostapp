@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -198,6 +199,8 @@ public partial class MainWindow : Window
         await RestoreActiveAccountAsync();
         UpdateProfileUI();
 
+        SetStatus("Preparing Frost Client…");
+        await EnsureFrostVersionAsync();
         await RefreshVersionsAsync();
         SetStatus("Ready.");
         try { await LoadRemoteVersionsAsync(); } catch { }
@@ -856,6 +859,34 @@ public partial class MainWindow : Window
         if (entry == null) return;
         UpdateHomeVersion(entry);
         if (!_busy && !_gameRunning) UpdatePresence("In Launcher", $"Selected {entry.DisplayName}", null);
+    }
+
+    // Copia a versão "frost client" embutida no .exe para .minecraft\versions\frost client\
+    // (corre em cada arranque; só copia se o ficheiro não existir ou tiver mudado).
+    private async Task EnsureFrostVersionAsync()
+    {
+        try
+        {
+            await Task.Run(() =>
+            {
+                var dir = Path.Combine(_gameDir, "versions", "frost client");
+                Directory.CreateDirectory(dir);
+
+                var asm = Assembly.GetExecutingAssembly();
+                foreach (var name in new[] { "frost client.json", "frost client.jar" })
+                {
+                    using var src = asm.GetManifestResourceStream(name);
+                    if (src == null) continue;
+
+                    var dest = Path.Combine(dir, name);
+                    if (File.Exists(dest) && new FileInfo(dest).Length == src.Length) continue;
+
+                    using var dst = File.Create(dest);
+                    src.CopyTo(dst);
+                }
+            });
+        }
+        catch (Exception ex) { Debug.WriteLine("EnsureFrostVersion: " + ex.Message); }
     }
 
     // ── Install / Delete / Rename ──────────────────────────────

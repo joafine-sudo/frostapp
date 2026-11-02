@@ -34,4 +34,10 @@
     <Resource Include="snow.png" />
   </ItemGroup>
 
+  <!-- Versão "frost client" embutida no .exe (extraída para .minecraft no arranque). -->
+  <ItemGroup>
+    <EmbeddedResource Include="default_version\frost client\frost client.json" LogicalName="frost client.json" />
+    <EmbeddedResource Include="default_version\frost client\frost client.jar" LogicalName="frost client.jar" />
+  </ItemGroup>
+
 </Project>
