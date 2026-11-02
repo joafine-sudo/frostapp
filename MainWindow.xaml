@@ -1346,6 +1346,28 @@
                 </Border>
             </Grid>
 
+            <!-- ====== DOWNLOAD RESOURCES OVERLAY ====== -->
+            <Grid x:Name="ResourcesOverlay" Panel.ZIndex="300" Visibility="Collapsed" Background="#EE04090F">
+                <Border Width="460" Padding="30" Background="#F00A1528" BorderBrush="#29466F"
+                        BorderThickness="1" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel>
+                        <TextBlock Text="Download Resources" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <TextBlock x:Name="ResourcesStatusText" Text="Preparing…" Foreground="{StaticResource TextMuted}"
+                                   FontSize="12" TextWrapping="Wrap" Margin="0,0,0,18"/>
+                        <ProgressBar x:Name="ResourcesProgress" Height="6" Minimum="0" Maximum="100" Value="0"
+                                     Foreground="#3B82F6" Background="#0D1E3A" BorderThickness="0" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="ResourcesPercentText" Text="0%" Foreground="{StaticResource TextMuted}"
+                                   FontSize="11" HorizontalAlignment="Right" Margin="0,0,0,6"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+                            <Button x:Name="ResourcesSkipButton" Content="SKIP" Style="{StaticResource BtnSecondary}"
+                                    MinWidth="90" Margin="0,0,10,0" Visibility="Collapsed" Click="ResourcesSkip_Click"/>
+                            <Button x:Name="ResourcesRetryButton" Content="RETRY" Style="{StaticResource BtnPrimary}"
+                                    MinWidth="90" Visibility="Collapsed" Click="ResourcesRetry_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
         </Grid>
     </Border>
 </Window>

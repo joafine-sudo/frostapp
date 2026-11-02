@@ -28,16 +28,15 @@
     <PackageReference Include="DiscordRichPresence" Version="1.6.1.70" />
   </ItemGroup>
 
+  <!-- Criado localmente por make-resources.ps1 antes do build. Fica embutido no EXE. -->
+  <ItemGroup>
+    <EmbeddedResource Include="frost-resources.zip" LogicalName="FrostClient.frost-resources.zip" />
+  </ItemGroup>
+
   <ItemGroup>
     <Resource Include="icon.ico" />
     <Resource Include="100480006.png" />
     <Resource Include="snow.png" />
-  </ItemGroup>
-
-  <!-- Versão "frost client" embutida no .exe (extraída para .minecraft no arranque). -->
-  <ItemGroup>
-    <EmbeddedResource Include="default_version\frost client\frost client.json" LogicalName="frost client.json" />
-    <EmbeddedResource Include="default_version\frost client\frost client.jar" LogicalName="frost client.jar" />
   </ItemGroup>
 
 </Project>

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Reflection;
 using System.Linq;
@@ -199,8 +200,7 @@ public partial class MainWindow : Window
         await RestoreActiveAccountAsync();
         UpdateProfileUI();
 
-        SetStatus("Preparing Frost Client…");
-        await EnsureFrostVersionAsync();
+        await EnsureFrostResourcesAsync();
         await RefreshVersionsAsync();
         SetStatus("Ready.");
         try { await LoadRemoteVersionsAsync(); } catch { }
@@ -861,32 +861,135 @@ public partial class MainWindow : Window
         if (!_busy && !_gameRunning) UpdatePresence("In Launcher", $"Selected {entry.DisplayName}", null);
     }
 
-    // Copia a versão "frost client" embutida no .exe para .minecraft\versions\frost client\
-    // (corre em cada arranque; só copia se o ficheiro não existir ou tiver mudado).
-    private async Task EnsureFrostVersionAsync()
+    // ──────────────────────────────────────────────────────────
+    // FROST RESOURCES (incorporados no próprio executável)
+    // O frost-resources.zip é adicionado ao assembly pelo FrostClient.csproj.
+    // Na primeira execução é extraído para .minecraft; nas seguintes é reutilizado.
+    // Estrutura do ZIP: versions/frost client/... e libraries/...
+    private const string EmbeddedResourcesName = "FrostClient.frost-resources.zip";
+    private const string ResourcesVersion = "2";
+    private TaskCompletionSource<bool>? _resourcesChoice;
+    private string _frostSetupInfo = "not run";
+
+    private string FrostVersionDir => Path.Combine(_gameDir, "versions", "frost client");
+    private string ForgeJarPath => Path.Combine(_gameDir, "libraries", "net", "minecraftforge", "forge",
+        "1.8.9-11.15.1.2318-1.8.9", "forge-1.8.9-11.15.1.2318-1.8.9.jar");
+    private string ResourcesMarker => Path.Combine(FrostVersionDir, ".resources-version");
+
+    private bool FrostResourcesReady()
     {
         try
         {
+            return File.Exists(Path.Combine(FrostVersionDir, "frost client.json"))
+                && File.Exists(Path.Combine(FrostVersionDir, "frost client.jar"))
+                && File.Exists(ForgeJarPath)
+                && File.Exists(ResourcesMarker)
+                && File.ReadAllText(ResourcesMarker).Trim() == ResourcesVersion;
+        }
+        catch { return false; }
+    }
+
+    private void SetResourcesProgress(double pct, string? text = null)
+    {
+        pct = Math.Clamp(pct, 0, 100);
+        if (ResourcesProgress != null) ResourcesProgress.Value = pct;
+        if (ResourcesPercentText != null) ResourcesPercentText.Text = $"{(int)pct}%";
+        if (text != null && ResourcesStatusText != null) ResourcesStatusText.Text = text;
+    }
+
+    private void ResourcesRetry_Click(object s, RoutedEventArgs e) => _resourcesChoice?.TrySetResult(true);
+    private void ResourcesSkip_Click (object s, RoutedEventArgs e) => _resourcesChoice?.TrySetResult(false);
+
+    // Devolve true quando a versão Frost e as libraries estão instaladas.
+    private async Task<bool> EnsureFrostResourcesAsync()
+    {
+        if (FrostResourcesReady()) { _frostSetupInfo = "already installed"; return true; }
+
+        while (true)
+        {
+            try
+            {
+                await DownloadAndInstallResourcesAsync();
+                _frostSetupInfo = "ok (embedded resources extracted)";
+                return FrostResourcesReady();
+            }
+            catch (Exception ex)
+            {
+                _frostSetupInfo = "ERROR: " + ex.Message;
+                ResourcesOverlay.Visibility = Visibility.Visible;
+                ResourcesProgress.Visibility = Visibility.Collapsed;
+                ResourcesPercentText.Text = "";
+                ResourcesStatusText.Text = "Resource installation failed: " + ex.Message +
+                    "\n\nRebuild the launcher with frost-resources.zip included.";
+                ResourcesRetryButton.Visibility = Visibility.Visible;
+                ResourcesSkipButton.Visibility  = Visibility.Visible;
+
+                _resourcesChoice = new TaskCompletionSource<bool>();
+                var retry = await _resourcesChoice.Task;
+
+                ResourcesRetryButton.Visibility = Visibility.Collapsed;
+                ResourcesSkipButton.Visibility  = Visibility.Collapsed;
+                ResourcesProgress.Visibility    = Visibility.Visible;
+                if (!retry) { ResourcesOverlay.Visibility = Visibility.Collapsed; return false; }
+            }
+        }
+    }
+
+    private async Task DownloadAndInstallResourcesAsync()
+    {
+        ResourcesOverlay.Visibility = Visibility.Visible;
+        SetResourcesProgress(0, "Preparing bundled Frost Client resources…");
+
+        var tmp = Path.Combine(Path.GetTempPath(), "frost-resources-embedded.zip");
+        try
+        {
+            // Copia o ZIP que está embutido no .exe para um ficheiro temporário.
+            await using (var embedded = typeof(MainWindow).Assembly.GetManifestResourceStream(EmbeddedResourcesName)
+                ?? throw new InvalidOperationException(
+                    "The embedded frost-resources.zip was not found. Run make-resources.ps1 before publishing."))
+            await using (var output = File.Create(tmp))
+            {
+                await embedded.CopyToAsync(output);
+            }
+
+            SetResourcesProgress(5, "Installing bundled libraries…");
+            Directory.CreateDirectory(_gameDir);
             await Task.Run(() =>
             {
-                var dir = Path.Combine(_gameDir, "versions", "frost client");
-                Directory.CreateDirectory(dir);
-
-                var asm = Assembly.GetExecutingAssembly();
-                foreach (var name in new[] { "frost client.json", "frost client.jar" })
+                var root = Path.GetFullPath(_gameDir) + Path.DirectorySeparatorChar;
+                using var zip = ZipFile.OpenRead(tmp);
+                int total = zip.Entries.Count, done = 0, lastPct = -1;
+                foreach (var entry in zip.Entries)
                 {
-                    using var src = asm.GetManifestResourceStream(name);
-                    if (src == null) continue;
-
-                    var dest = Path.Combine(dir, name);
-                    if (File.Exists(dest) && new FileInfo(dest).Length == src.Length) continue;
-
-                    using var dst = File.Create(dest);
-                    src.CopyTo(dst);
+                    done++;
+                    if (!string.IsNullOrEmpty(entry.Name))
+                    {
+                        var dest = Path.GetFullPath(Path.Combine(_gameDir, entry.FullName));
+                        if (dest.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                        {
+                            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                            entry.ExtractToFile(dest, overwrite: true);
+                        }
+                    }
+                    int pct = 5 + done * 95 / Math.Max(total, 1);
+                    if (pct != lastPct)
+                    {
+                        lastPct = pct;
+                        Dispatcher.BeginInvoke(() => SetResourcesProgress(pct, "Installing libraries…"));
+                    }
                 }
             });
+
+            Directory.CreateDirectory(FrostVersionDir);
+            File.WriteAllText(ResourcesMarker, ResourcesVersion);
+            SetResourcesProgress(100, "Frost Client installed!");
+            await Task.Delay(400);
         }
-        catch (Exception ex) { Debug.WriteLine("EnsureFrostVersion: " + ex.Message); }
+        finally
+        {
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+        }
+        ResourcesOverlay.Visibility = Visibility.Collapsed;
     }
 
     // ── Install / Delete / Rename ──────────────────────────────
@@ -1077,6 +1180,22 @@ public partial class MainWindow : Window
             // ensure per-version mods folder exists
             Directory.CreateDirectory(GameModsDir(realId));
 
+            // Garante que a versão Frost e as libraries (Forge, etc.) estão instaladas antes de lançar.
+            if (realId.Contains("frost client", StringComparison.OrdinalIgnoreCase))
+            {
+                SetStatus("Checking Frost Client resources…");
+                var ok = await EnsureFrostResourcesAsync();
+                if (!ok || !File.Exists(ForgeJarPath))
+                {
+                    MessageBox.Show(
+                        $"Frost Client resources are not installed.\n\nStatus: {_frostSetupInfo}\n\nCheck your internet connection and press PLAY again.",
+                        "Frost Client", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    SetStatus("Missing resources.");
+                    UpdatePresence("In Launcher", "Frost Client", null);
+                    return;
+                }
+            }
+
             var launcher = new MinecraftLauncher(new MinecraftPath(_gameDir));
             var options  = new MLaunchOption
             {
@@ -1115,14 +1234,55 @@ public partial class MainWindow : Window
 
             process.EnableRaisingEvents = true;
             _gameRunning = true;
-            process.Exited += (_, _) => Dispatcher.BeginInvoke(() =>
+
+            // Captura a saída do jogo para um log (para diagnosticar crashes no PC de outras pessoas).
+            var logPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "FrostClient", "last-launch.log");
+            var logSb = new System.Text.StringBuilder();
+            logSb.AppendLine($"Date: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            logSb.AppendLine($"Version: {realId}");
+            logSb.AppendLine($"Java: {process.StartInfo.FileName}");
+            logSb.AppendLine($"Frost setup: {_frostSetupInfo}");
+            logSb.AppendLine($"Forge jar present: {File.Exists(ForgeJarPath)}");
+            logSb.AppendLine($"Launcher exe: {Environment.ProcessPath} ({(File.Exists(Environment.ProcessPath) ? new FileInfo(Environment.ProcessPath!).Length / 1024 / 1024 : 0)} MB)");
+            logSb.AppendLine($"OS: {Environment.OSVersion}");
+            logSb.AppendLine($"RAM requested: {options.MaximumRamMb} MB");
+            logSb.AppendLine("----- game output -----");
+
+            process.StartInfo.UseShellExecute        = false;
+            process.StartInfo.CreateNoWindow         = true;
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError  = true;
+            process.OutputDataReceived += (_, a) => { if (a.Data != null) lock (logSb) logSb.AppendLine(a.Data); };
+            process.ErrorDataReceived  += (_, a) => { if (a.Data != null) lock (logSb) logSb.AppendLine(a.Data); };
+
+            process.Exited += (_, _) =>
             {
-                _gameRunning = false;
-                if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-                UpdatePresence("In Launcher", "Frost Client", null);
-                SetStatus("Game closed.");
-            });
+                int code = -1;
+                try { process.WaitForExit(); code = process.ExitCode; } catch { }
+                try
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+                    lock (logSb) { logSb.AppendLine($"----- exit code: {code} -----"); File.WriteAllText(logPath, logSb.ToString()); }
+                }
+                catch { }
+
+                Dispatcher.BeginInvoke(() =>
+                {
+                    _gameRunning = false;
+                    if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+                    UpdatePresence("In Launcher", "Frost Client", null);
+                    SetStatus("Game closed.");
+                    if (code != 0)
+                        MessageBox.Show(
+                            $"The game closed with an error (code {code}).\n\nA log was saved at:\n{logPath}\n\nSend this file to the developer.",
+                            "Frost Client", MessageBoxButton.OK, MessageBoxImage.Warning);
+                });
+            };
             process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
             SetStatus($"{entry.DisplayName} is starting…");
             await Task.Delay(2000);
             SetStatus($"{entry.DisplayName} is running.");
