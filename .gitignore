@@ -1,0 +1,11 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+
+libraries/
+frost-resources.zip
+publish/
+
+default_version/frost-libs.zip
