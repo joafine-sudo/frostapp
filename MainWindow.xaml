@@ -1,6 +1,7 @@
 <Window x:Class="FrostClient.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:FrostClient"
         Title="Frost Client"
         Width="1120" Height="700"
         MinWidth="900" MinHeight="620"
@@ -38,6 +39,36 @@
         <Geometry x:Key="IconYT">F0 M23.5,6.2 A3,3 0 0 0 21.4,4.1 C19.5,3.5 12,3.5 12,3.5 S4.5,3.5 2.6,4.1 A3,3 0 0 0 0.5,6.2 C0,8.1 0,12 0,12 S0,15.9 0.5,17.8 A3,3 0 0 0 2.6,19.9 C4.5,20.5 12,20.5 12,20.5 S19.5,20.5 21.4,19.9 A3,3 0 0 0 23.5,17.8 C24,15.9 24,12 24,12 S24,8.1 23.5,6.2 Z M9.5,15.6 V8.4 L15.8,12 Z</Geometry>
         <Geometry x:Key="IconGH">F0 M12,.3 C5.4,.3 0,5.6 0,12.3 0,17.6 3.4,22.1 8.2,23.7 8.8,23.8 9,23.4 9,23.1 9,22.8 9,21.8 9,20.8 5.7,21.5 5,19.2 5,19.2 4.4,17.6 3.6,17.2 3.6,17.2 2.5,16.4 3.7,16.5 3.7,16.5 4.9,16.6 5.5,17.7 5.5,17.7 6.6,19.6 8.4,19 9,18.7 9.1,17.9 9.4,17.4 9.8,17.1 7.1,16.8 4.3,15.8 4.3,11.2 4.3,9.9 4.8,8.8 5.5,8 5.4,7.7 4.9,6.5 5.6,4.9 5.6,4.9 6.6,4.6 9,6.2 9.9,5.9 10.9,5.8 12,5.8 13.1,5.8 14.1,5.9 15,6.2 17.4,4.6 18.4,4.9 18.4,4.9 19.1,6.5 18.6,7.7 18.5,8 19.2,8.8 19.7,9.9 19.7,11.2 19.7,15.8 16.9,16.8 14.2,17.1 14.7,17.6 15,18.4 15,19.6 15,21.4 15,22.7 15,23.1 15,23.4 15.2,23.8 15.8,23.7 20.6,22.1 24,17.6 24,12.3 24,5.6 18.6,.3 12,.3 Z</Geometry>
         <Geometry x:Key="IconDelete">M6,19 A2,2 0 0,0 8,21 H16 A2,2 0 0,0 18,19 V7 H6 V19 Z M19,4 H15.5 L14.5,3 H9.5 L8.5,4 H5 V6 H19 V4 Z</Geometry>
+
+        <!-- TOOLTIP (dark, matches the app) -->
+        <!-- WindowStyle="None" + AllowsTransparency="True" breaks the OS's default tooltip
+             chrome: the popup shows up but its text never renders, leaving a blank white
+             box over whatever button is hovered (Play, Discord, YouTube, GitHub, ...).
+             This explicit template replaces that broken system chrome everywhere, since it
+             has no x:Key and therefore applies to every ToolTip in the app automatically. -->
+        <Style TargetType="{x:Type ToolTip}">
+            <Setter Property="Background" Value="#0A1428"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#1C3358"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Padding" Value="9,6"/>
+            <Setter Property="HasDropShadow" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToolTip}">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter TextElement.Foreground="{TemplateBinding Foreground}"
+                                              TextElement.FontSize="{TemplateBinding FontSize}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
 
         <!-- SCROLLBAR (thin, dark) -->
         <Style TargetType="ScrollBar">
@@ -285,6 +316,33 @@
             </Setter>
         </Style>
 
+        <!-- Discord brand button (used for the prominent "Join Discord" call-to-action) -->
+        <Style x:Key="BtnDiscord" TargetType="Button">
+            <Setter Property="Background" Value="#5865F2"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="18,10"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="8"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#6B74F5"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Small icon button -->
         <Style x:Key="BtnIcon" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
@@ -440,7 +498,10 @@
                         <Border x:Name="AccBd" Width="48" Height="48" CornerRadius="10"
                                 Background="#0A1428" BorderBrush="Transparent" BorderThickness="2"
                                 ClipToBounds="True">
-                            <TextBlock Text="{Binding Letter}" Foreground="#60A5FA" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <Grid>
+                                <TextBlock Text="{Binding Letter}" Foreground="#60A5FA" FontSize="17" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                <Image Source="{Binding AvatarUrl}" Stretch="UniformToFill"/>
+                            </Grid>
                         </Border>
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
@@ -485,13 +546,13 @@
         <Grid>
             <!-- Background image -->
             <Grid.Background>
-                <ImageBrush ImageSource="snow.png" Stretch="UniformToFill" Opacity="0.45"/>
+                <ImageBrush x:Name="BackgroundImageBrush" ImageSource="default.png" Stretch="UniformToFill" Opacity="1"/>
             </Grid.Background>
             <Rectangle>
                 <Rectangle.Fill>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#D0070F1E" Offset="0"/>
-                        <GradientStop Color="#F5060D1A" Offset="1"/>
+                        <GradientStop Color="#33070F1E" Offset="0"/>
+                        <GradientStop Color="#99060D1A" Offset="1"/>
                     </LinearGradientBrush>
                 </Rectangle.Fill>
             </Rectangle>
@@ -524,13 +585,13 @@
                         <!-- Nav buttons -->
                         <StackPanel x:Name="SidebarMenu" Grid.Row="1" HorizontalAlignment="Center">
                             <Button x:Name="NavHome"    Style="{StaticResource NavBtn}"
-                                    Tag="{StaticResource IconPlay}"     ToolTip="Play"         Click="HomeNav_Click"/>
+                                    Tag="{StaticResource IconPlay}"     ToolTip="{Binding [nav_start], Source={x:Static loc:Loc.Instance}}"        Click="HomeNav_Click"/>
                             <Button x:Name="NavVersions" Style="{StaticResource NavBtn}"
-                                    Tag="{StaticResource IconVersions}" ToolTip="Versions"     Click="VersionsNav_Click"/>
+                                    Tag="{StaticResource IconVersions}" ToolTip="{Binding [nav_versions], Source={x:Static loc:Loc.Instance}}"     Click="VersionsNav_Click"/>
                             <Button x:Name="NavSettings" Style="{StaticResource NavBtn}"
-                                    Tag="{StaticResource IconSettings}" ToolTip="Settings"     Click="SettingsNav_Click"/>
+                                    Tag="{StaticResource IconSettings}" ToolTip="{Binding [nav_settings], Source={x:Static loc:Loc.Instance}}"     Click="SettingsNav_Click"/>
                             <Button x:Name="NavAccount"  Style="{StaticResource NavBtn}"
-                                    Tag="{StaticResource IconAccount}"  ToolTip="Account"      Click="AccountNav_Click"/>
+                                    Tag="{StaticResource IconAccount}"  ToolTip="{Binding [nav_accounts], Source={x:Static loc:Loc.Instance}}"     Click="AccountNav_Click"/>
                         </StackPanel>
 
                         <!-- Version label -->
@@ -554,7 +615,7 @@
                     <Grid Grid.Row="0" Background="#44060D1A"
                           MouseLeftButtonDown="TopBar_MouseLeftButtonDown">
                         <TextBlock Text="FROST CLIENT" FontSize="10" FontWeight="Bold"
-                                   Foreground="#2A4A7A" VerticalAlignment="Center" Margin="22,0,0,0"/>
+                                   Foreground="{StaticResource TextMuted}" VerticalAlignment="Center" Margin="22,0,0,0"/>
 
                         <!-- Account chip (Lunar style) -->
                         <Button HorizontalAlignment="Right" VerticalAlignment="Center"
@@ -582,11 +643,15 @@
                             <StackPanel Orientation="Horizontal">
                                 <Border Width="36" Height="36" CornerRadius="7" Background="#0A1428"
                                         ClipToBounds="True" Margin="0,0,10,0">
-                                    <Image x:Name="TopPlayerAvatar" Stretch="UniformToFill"/>
+                                    <Grid>
+                                        <TextBlock Text="❄" FontSize="16" Foreground="#2B4A7A"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                        <Image x:Name="TopPlayerAvatar" Stretch="UniformToFill"/>
+                                    </Grid>
                                 </Border>
                                 <StackPanel VerticalAlignment="Center">
-                                    <TextBlock Text="Playing as" FontSize="9" Foreground="#BFDBFE"/>
-                                    <TextBlock x:Name="TopPlayerName" Text="Not logged in"
+                                    <TextBlock Text="{Binding [playing_as], Source={x:Static loc:Loc.Instance}}" FontSize="9" Foreground="#BFDBFE"/>
+                                    <TextBlock x:Name="TopPlayerName" Text="{Binding [not_logged_in], Source={x:Static loc:Loc.Instance}}"
                                                FontSize="13" FontWeight="Black" Foreground="White"/>
                                 </StackPanel>
                             </StackPanel>
@@ -615,21 +680,15 @@
 
                             <!-- Hero area -->
                             <Grid>
-                                <!-- Snowflake watermarks -->
-                                <TextBlock Text="❄" FontSize="160" Foreground="#09FFFFFF"
-                                           HorizontalAlignment="Left"  VerticalAlignment="Top" Margin="20,10,0,0"/>
-                                <TextBlock Text="❄" FontSize="100" Foreground="#07FFFFFF"
-                                           HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,30,20"/>
-
                                 <!-- Centre content -->
                                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="360">
                                     <TextBlock Text="Frost Client" FontSize="38" FontWeight="Black"
                                                Foreground="White" HorizontalAlignment="Center"/>
-                                    <TextBlock x:Name="HomeSubText" Text="Ready when you are."
+                                    <TextBlock x:Name="HomeSubText" Text="{Binding [home_sub_default], Source={x:Static loc:Loc.Instance}}"
                                                FontSize="13" Foreground="{StaticResource TextMuted}"
                                                HorizontalAlignment="Center" Margin="0,6,0,24"/>
 
-                                    <TextBlock Text="VERSION" Style="{StaticResource Label}"
+                                    <TextBlock Text="{Binding [version], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}"
                                                HorizontalAlignment="Left"/>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
@@ -637,18 +696,19 @@
                                             <ColumnDefinition Width="Auto"/>
                                         </Grid.ColumnDefinitions>
                                         <ComboBox x:Name="VersionBox" Style="{StaticResource CB}"
+                                                  DisplayMemberPath="DisplayName"
                                                   SelectionChanged="Version_Changed"
                                                   PreviewMouseWheel="CB_Wheel"/>
                                         <!-- Rename button (pencil) -->
                                         <Button Grid.Column="1" Style="{StaticResource BtnIcon}"
                                                 Tag="{StaticResource IconEdit}"
-                                                ToolTip="Rename this version"
+                                                ToolTip="{Binding [rename_version_tip], Source={x:Static loc:Loc.Instance}}"
                                                 Margin="8,0,0,0"
                                                 Click="RenameVersion_Click"/>
                                     </Grid>
 
                                     <Button x:Name="PlayButton" Style="{StaticResource BtnPrimary}"
-                                            Content="PLAY" FontSize="20" Height="56"
+                                            Content="{Binding [play], Source={x:Static loc:Loc.Instance}}" FontSize="20" Height="56"
                                             HorizontalAlignment="Stretch" Margin="0,14,0,0"
                                             Click="Play_Click">
                                         <Button.Effect>
@@ -683,12 +743,12 @@
 
                                 <!-- Add account -->
                                 <Button Style="{StaticResource UtilityChip}" Tag="{StaticResource IconPlus}"
-                                        ToolTip="Add account" Margin="0,0,8,0"
+                                        ToolTip="{Binding [add_account_tip], Source={x:Static loc:Loc.Instance}}" Margin="0,0,8,0"
                                         Click="OpenAddAccountPage_Click"/>
 
                                 <!-- Manage accounts -->
                                 <Button Style="{StaticResource UtilityChip}" Tag="{StaticResource IconSettings}"
-                                        ToolTip="Manage accounts" Click="AccountNav_Click"/>
+                                        ToolTip="{Binding [manage_accounts_tip], Source={x:Static loc:Loc.Instance}}" Click="AccountNav_Click"/>
                             </StackPanel>
 
                             <!-- Quick action strip (Badlion style) -->
@@ -700,16 +760,24 @@
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="{StaticResource IconFolder}" Fill="White"
                                               Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0"/>
-                                        <TextBlock Text="OPEN .MINECRAFT" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding [open_minecraft], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                                 <Button Style="{StaticResource BtnSecondary}"
-                                        Padding="18,10"
+                                        Padding="18,10" Margin="0,0,10,0"
                                         Click="OpenModsFolder_Click">
                                     <StackPanel Orientation="Horizontal">
                                         <Path Data="{StaticResource IconFolder}" Fill="White"
                                               Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0"/>
-                                        <TextBlock Text="OPEN MODS FOLDER" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding [open_mods], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Button>
+                                <Button Style="{StaticResource BtnDiscord}"
+                                        Click="Discord_Click" ToolTip="{Binding [join_discord_tip], Source={x:Static loc:Loc.Instance}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Data="{StaticResource IconDiscord}" Fill="White"
+                                              Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0"/>
+                                        <TextBlock Text="{Binding [join_discord], Source={x:Static loc:Loc.Instance}}" VerticalAlignment="Center"/>
                                     </StackPanel>
                                 </Button>
                             </StackPanel>
@@ -723,8 +791,8 @@
                             </Grid.RowDefinitions>
 
                             <StackPanel>
-                                <TextBlock Text="Versions" Style="{StaticResource PageTitle}"/>
-                                <TextBlock Text="Install and manage your Minecraft versions."
+                                <TextBlock Text="{Binding [nav_versions], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}"/>
+                                <TextBlock Text="{Binding [versions_sub], Source={x:Static loc:Loc.Instance}}"
                                            Style="{StaticResource PageSub}"/>
                             </StackPanel>
 
@@ -738,15 +806,15 @@
                                 <!-- Install panel -->
                                 <Border Style="{StaticResource Card}" VerticalAlignment="Top">
                                     <StackPanel>
-                                        <TextBlock Text="INSTALL NEW VERSION"
+                                        <TextBlock Text="{Binding [install_new], Source={x:Static loc:Loc.Instance}}"
                                                    Style="{StaticResource Label}" Margin="0,0,0,12"/>
-                                        <TextBlock Text="Minecraft version" Style="{StaticResource Label}"/>
+                                        <TextBlock Text="{Binding [mc_version], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}"/>
                                         <ComboBox x:Name="InstallVersionBox" Style="{StaticResource CB}"
                                                   Margin="0,0,0,14"
                                                   PreviewMouseWheel="CB_Wheel"/>
 
                                         <Button x:Name="InstallButton"
-                                                Content="DOWNLOAD AND INSTALL"
+                                                Content="{Binding [download_install], Source={x:Static loc:Loc.Instance}}"
                                                 Style="{StaticResource BtnPrimary}"
                                                 Margin="0,0,0,12"
                                                 Click="InstallVersion_Click"/>
@@ -758,7 +826,7 @@
 
                                         <Border Background="#080F22" CornerRadius="7" Padding="12">
                                             <TextBlock x:Name="InstallStatusText"
-                                                       Text="Waiting for installation…"
+                                                       Text="{Binding [waiting_install], Source={x:Static loc:Loc.Instance}}"
                                                        FontSize="10" Foreground="{StaticResource TextMuted}"
                                                        TextWrapping="Wrap"/>
                                         </Border>
@@ -773,10 +841,10 @@
                                     </Grid.RowDefinitions>
 
                                     <Grid Margin="0,0,0,12">
-                                        <TextBlock Text="INSTALLED VERSIONS"
+                                        <TextBlock Text="{Binding [installed_versions], Source={x:Static loc:Loc.Instance}}"
                                                    Style="{StaticResource Label}"
                                                    VerticalAlignment="Center"/>
-                                        <Button Content="REFRESH" Style="{StaticResource BtnSecondary}"
+                                        <Button Content="{Binding [refresh], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}"
                                                 HorizontalAlignment="Right" Padding="14,7"
                                                 Click="RefreshVersions_Click"/>
                                     </Grid>
@@ -819,14 +887,14 @@
                                                             <StackPanel Grid.Column="2" Orientation="Horizontal"
                                                                         VerticalAlignment="Center">
                                                                 <Button Tag="{Binding RealId}"
-                                                                        Content="SELECT"
+                                                                        Content="{Binding [select], Source={x:Static loc:Loc.Instance}}"
                                                                         Style="{StaticResource BtnSecondary}"
                                                                         Padding="12,7" FontSize="10"
                                                                         Margin="0,0,8,0"
                                                                         Click="SelectVersion_Click"/>
                                                                 <Button Tag="{Binding RealId}"
                                                                         Style="{StaticResource BtnIcon}"
-                                                                        ToolTip="Rename"
+                                                                        ToolTip="{Binding [rename], Source={x:Static loc:Loc.Instance}}"
                                                                         Click="RenameVersionFromList_Click">
                                                                     <Button.Content>
                                                                         <Path Data="{StaticResource IconEdit}"
@@ -849,7 +917,7 @@
                                                                 </Button>
                                                                 <Button Tag="{Binding RealId}"
                                                                         Style="{StaticResource BtnIcon}"
-                                                                        ToolTip="Delete"
+                                                                        ToolTip="{Binding [delete], Source={x:Static loc:Loc.Instance}}"
                                                                         Margin="4,0,0,0"
                                                                         Click="DeleteVersion_Click">
                                                                     <Button.Content>
@@ -889,8 +957,8 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
                             <StackPanel>
-                                <TextBlock Text="Settings" Style="{StaticResource PageTitle}"/>
-                                <TextBlock Text="Customize your Frost Client experience."
+                                <TextBlock Text="{Binding [nav_settings], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}"/>
+                                <TextBlock Text="{Binding [settings_sub], Source={x:Static loc:Loc.Instance}}"
                                            Style="{StaticResource PageSub}"/>
                             </StackPanel>
 
@@ -898,7 +966,7 @@
                                 <StackPanel Margin="0,0,10,0">
 
                                     <!-- GAME SECTION -->
-                                    <TextBlock Text="Game" Foreground="{StaticResource TextMuted}"
+                                    <TextBlock Text="{Binding [sec_game], Source={x:Static loc:Loc.Instance}}" Foreground="{StaticResource TextMuted}"
                                                FontSize="11" FontWeight="SemiBold" Margin="4,0,0,10"/>
                                     <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,20">
                                         <StackPanel>
@@ -910,9 +978,9 @@
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel VerticalAlignment="Center">
-                                                        <TextBlock Text="Allocated RAM" Style="{StaticResource RowTitle}"/>
-                                                        <TextBlock Text="Memory dedicated to Minecraft" Style="{StaticResource RowDesc}"/>
-                                                        <TextBlock Text="Recommended: 4 GB" Foreground="#60A5FA"
+                                                        <TextBlock Text="{Binding [ram], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
+                                                        <TextBlock Text="{Binding [ram_desc], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowDesc}"/>
+                                                        <TextBlock Text="{Binding [ram_rec], Source={x:Static loc:Loc.Instance}}" Foreground="#60A5FA"
                                                                    FontSize="10" Margin="0,5,0,0"/>
                                                     </StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal"
@@ -936,14 +1004,14 @@
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel VerticalAlignment="Center">
-                                                        <TextBlock Text="Game Resolution" Style="{StaticResource RowTitle}"/>
-                                                        <TextBlock Text="Window size when Minecraft starts" Style="{StaticResource RowDesc}"/>
+                                                        <TextBlock Text="{Binding [res], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
+                                                        <TextBlock Text="{Binding [res_desc], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowDesc}"/>
                                                     </StackPanel>
                                                     <ComboBox x:Name="ResolutionBox" Grid.Column="1" Width="190"
                                                               Style="{StaticResource CB}" SelectedIndex="0"
                                                               SelectionChanged="Settings_ComboChanged"
                                                               PreviewMouseWheel="CB_Wheel">
-                                                        <ComboBoxItem Content="Default"/>
+                                                        <ComboBoxItem Content="{Binding [res_default], Source={x:Static loc:Loc.Instance}}"/>
                                                         <ComboBoxItem Content="1280 × 720"/>
                                                         <ComboBoxItem Content="1600 × 900"/>
                                                         <ComboBoxItem Content="1920 × 1080"/>
@@ -959,15 +1027,15 @@
                                                         <ColumnDefinition Width="Auto"/>
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel VerticalAlignment="Center">
-                                                        <TextBlock Text="When the game opens" Style="{StaticResource RowTitle}"/>
-                                                        <TextBlock Text="What happens to the launcher when Minecraft starts" Style="{StaticResource RowDesc}"/>
+                                                        <TextBlock Text="{Binding [on_open], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
+                                                        <TextBlock Text="{Binding [on_open_desc], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowDesc}"/>
                                                     </StackPanel>
                                                     <ComboBox x:Name="OnLaunchBox" Grid.Column="1" Width="190"
                                                               Style="{StaticResource CB}" SelectedIndex="0"
                                                               SelectionChanged="Settings_ComboChanged"
                                                               PreviewMouseWheel="CB_Wheel">
-                                                        <ComboBoxItem Content="Keep launcher open"/>
-                                                        <ComboBoxItem Content="Minimize to taskbar"/>
+                                                        <ComboBoxItem Content="{Binding [keep_open], Source={x:Static loc:Loc.Instance}}"/>
+                                                        <ComboBoxItem Content="{Binding [minimize], Source={x:Static loc:Loc.Instance}}"/>
                                                     </ComboBox>
                                                 </Grid>
                                             </Border>
@@ -981,7 +1049,7 @@
                                                     </Grid.ColumnDefinitions>
                                                     <StackPanel VerticalAlignment="Center">
                                                         <TextBlock Text="Discord Rich Presence" Style="{StaticResource RowTitle}"/>
-                                                        <TextBlock Text="Show your current game on Discord" Style="{StaticResource RowDesc}"/>
+                                                        <TextBlock Text="{Binding [discord_rpc_desc], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowDesc}"/>
                                                     </StackPanel>
                                                     <CheckBox x:Name="DiscordToggle" Grid.Column="1"
                                                               Style="{StaticResource Toggle}" IsChecked="True"
@@ -993,6 +1061,58 @@
                                         </StackPanel>
                                     </Border>
 
+                                    <!-- APPEARANCE SECTION -->
+                                    <TextBlock Text="{Binding [sec_appearance], Source={x:Static loc:Loc.Instance}}" Foreground="{StaticResource TextMuted}"
+                                               FontSize="11" FontWeight="SemiBold" Margin="4,0,0,10"/>
+                                    <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,20">
+                                        <StackPanel>
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding [bg], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
+                                                        <TextBlock Text="{Binding [bg_desc], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowDesc}"/>
+                                                    </StackPanel>
+                                                    <ComboBox x:Name="WallpaperBox" Grid.Column="1" Width="190"
+                                                              Style="{StaticResource CB}" SelectedIndex="0"
+                                                              SelectionChanged="Wallpaper_Changed"
+                                                              PreviewMouseWheel="CB_Wheel">
+                                                        <ComboBoxItem Content="{Binding [wp_default], Source={x:Static loc:Loc.Instance}}" Tag="default.png"/>
+                                                        <ComboBoxItem Content="{Binding [wp_iceland], Source={x:Static loc:Loc.Instance}}"        Tag="iceland.jpg"/>
+                                                        <ComboBoxItem Content="{Binding [wp_house], Source={x:Static loc:Loc.Instance}}"          Tag="house.jpg"/>
+                                                        <ComboBoxItem Content="{Binding [wp_fox], Source={x:Static loc:Loc.Instance}}"            Tag="fox.jpg"/>
+                                                    </ComboBox>
+                                                </Grid>
+                                            </Border>
+                                        <Border Style="{StaticResource SettingRow}" BorderThickness="0">
+                                          <Grid>
+                                              <Grid.ColumnDefinitions>
+                                                  <ColumnDefinition Width="*"/>
+                                                  <ColumnDefinition Width="Auto"/>
+                                              </Grid.ColumnDefinitions>
+                                              <StackPanel VerticalAlignment="Center">
+                                                  <TextBlock Text="{Binding [language], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
+                                                  <TextBlock Text="{Binding [language_desc], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowDesc}"/>
+                                              </StackPanel>
+                                              <ComboBox x:Name="LanguageBox" Grid.Column="1" Width="220"
+                                                        Style="{StaticResource CB}"
+                                                        SelectionChanged="Language_Changed"
+                                                        PreviewMouseWheel="CB_Wheel">
+                                                <ComboBoxItem Content="English" Tag="en-GB"/>
+                                                <ComboBoxItem Content="Português" Tag="pt-PT"/>
+                                                <ComboBoxItem Content="Español" Tag="es-ES"/>
+                                                <ComboBoxItem Content="Français" Tag="fr-FR"/>
+                                                <ComboBoxItem Content="Русский" Tag="ru-RU"/>
+                                                <ComboBoxItem Content="ไทย" Tag="th-TH"/>
+                                              </ComboBox>
+                                          </Grid>
+                                        </Border>
+                                        </StackPanel>
+                                    </Border>
+
                                     <!-- JAVA SECTION -->
                                     <TextBlock Text="Java" Foreground="{StaticResource TextMuted}"
                                                FontSize="11" FontWeight="SemiBold" Margin="4,0,0,10"/>
@@ -1001,8 +1121,8 @@
                                             <!-- Java path -->
                                             <Border Style="{StaticResource SettingRow}">
                                                 <StackPanel>
-                                                    <TextBlock Text="Java Executable" Style="{StaticResource RowTitle}"/>
-                                                    <TextBlock Text="Leave empty for automatic detection"
+                                                    <TextBlock Text="{Binding [java_exe], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
+                                                    <TextBlock Text="{Binding [java_exe_desc], Source={x:Static loc:Loc.Instance}}"
                                                                Style="{StaticResource RowDesc}" Margin="0,3,0,12"/>
                                                     <Grid>
                                                         <Grid.ColumnDefinitions>
@@ -1011,7 +1131,7 @@
                                                         </Grid.ColumnDefinitions>
                                                         <TextBox x:Name="JavaPathBox" Style="{StaticResource TB}"
                                                                  TextChanged="Settings_TextChanged" Margin="0,0,8,0"/>
-                                                        <Button Grid.Column="1" Content="BROWSE"
+                                                        <Button Grid.Column="1" Content="{Binding [browse], Source={x:Static loc:Loc.Instance}}"
                                                                 Style="{StaticResource BtnSecondary}"
                                                                 Click="BrowseJava_Click"/>
                                                     </Grid>
@@ -1021,14 +1141,14 @@
                                             <!-- JVM args -->
                                             <Border Style="{StaticResource SettingRow}" BorderThickness="0">
                                                 <StackPanel>
-                                                    <TextBlock Text="Custom JVM Arguments" Style="{StaticResource RowTitle}"/>
-                                                    <TextBlock Text="Passed directly to the JVM on launch"
+                                                    <TextBlock Text="{Binding [jvm_args], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
+                                                    <TextBlock Text="{Binding [jvm_args_desc], Source={x:Static loc:Loc.Instance}}"
                                                                Style="{StaticResource RowDesc}" Margin="0,3,0,12"/>
                                                     <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
-                                                        <Button Content="Balanced"   Tag="Balanced"   Style="{StaticResource BtnChip}" Click="JvmPreset_Click"/>
-                                                        <Button Content="Performance" Tag="Performance" Style="{StaticResource BtnChip}" Click="JvmPreset_Click"/>
-                                                        <Button Content="Max FPS"    Tag="MaxFps"    Style="{StaticResource BtnChip}" Click="JvmPreset_Click"/>
-                                                        <Button Content="Clear"      Tag="Clear"     Style="{StaticResource BtnChip}" Click="JvmPreset_Click"/>
+                                                        <Button Content="{Binding [preset_balanced], Source={x:Static loc:Loc.Instance}}"   Tag="Balanced"   Style="{StaticResource BtnChip}" Click="JvmPreset_Click"/>
+                                                        <Button Content="{Binding [preset_perf], Source={x:Static loc:Loc.Instance}}" Tag="Performance" Style="{StaticResource BtnChip}" Click="JvmPreset_Click"/>
+                                                        <Button Content="{Binding [preset_maxfps], Source={x:Static loc:Loc.Instance}}"    Tag="MaxFps"    Style="{StaticResource BtnChip}" Click="JvmPreset_Click"/>
+                                                        <Button Content="{Binding [preset_clear], Source={x:Static loc:Loc.Instance}}"      Tag="Clear"     Style="{StaticResource BtnChip}" Click="JvmPreset_Click"/>
                                                     </StackPanel>
                                                     <TextBox x:Name="JavaArgumentsBox" Style="{StaticResource TB}"
                                                              AcceptsReturn="True" TextWrapping="Wrap"
@@ -1040,7 +1160,7 @@
                                         </StackPanel>
                                     </Border>
 
-                                    <Button Content="SAVE SETTINGS" Style="{StaticResource BtnPrimary}"
+                                    <Button Content="{Binding [save_settings], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnPrimary}"
                                             HorizontalAlignment="Stretch" Margin="0,0,0,10"
                                             Click="SaveSettings_Click"/>
                                 </StackPanel>
@@ -1054,8 +1174,8 @@
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
                             <StackPanel Margin="0,0,0,22">
-                                <TextBlock Text="Accounts" Style="{StaticResource PageTitle}"/>
-                                <TextBlock Text="Manage your Offline and Microsoft accounts." Style="{StaticResource PageSub}"/>
+                                <TextBlock Text="{Binding [nav_accounts], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageTitle}"/>
+                                <TextBlock Text="{Binding [accounts_sub], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource PageSub}"/>
                             </StackPanel>
                             <Grid Grid.Row="1">
                                 <Grid.ColumnDefinitions>
@@ -1067,16 +1187,20 @@
                                     <StackPanel>
                                         <Border Style="{StaticResource Card}" Margin="0,0,0,14">
                                             <StackPanel>
-                                                <TextBlock Text="ACTIVE ACCOUNT" Style="{StaticResource Label}"/>
+                                                <TextBlock Text="{Binding [active_account], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}"/>
                                                 <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
                                                     <Border Width="48" Height="48" Background="#0D2040" CornerRadius="10"
                                                             ClipToBounds="True" Margin="0,0,12,0">
-                                                        <Image x:Name="AccountPlayerAvatar" Stretch="UniformToFill"/>
+                                                        <Grid>
+                                                            <TextBlock Text="❄" FontSize="20" Foreground="#2B4A7A"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                            <Image x:Name="AccountPlayerAvatar" Stretch="UniformToFill"/>
+                                                        </Grid>
                                                     </Border>
                                                     <StackPanel VerticalAlignment="Center">
-                                                        <TextBlock x:Name="AccountPlayerName" Text="Not logged in"
+                                                        <TextBlock x:Name="AccountPlayerName" Text="{Binding [not_logged_in], Source={x:Static loc:Loc.Instance}}"
                                                                    Foreground="White" FontSize="15" FontWeight="Bold"/>
-                                                        <TextBlock x:Name="AccountStatusDetail" Text="No account selected"
+                                                        <TextBlock x:Name="AccountStatusDetail" Text="{Binding [not_logged_in], Source={x:Static loc:Loc.Instance}}"
                                                                    Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,4,0,0"/>
                                                     </StackPanel>
                                                 </StackPanel>
@@ -1084,21 +1208,21 @@
                                         </Border>
                                         <Border Style="{StaticResource Card}" Margin="0,0,0,14">
                                             <StackPanel>
-                                                <TextBlock Text="ADD OFFLINE ACCOUNT" Style="{StaticResource Label}"/>
-                                                <TextBlock Text="Create a local account using a username."
+                                                <TextBlock Text="{Binding [add_offline_title], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}"/>
+                                                <TextBlock Text="{Binding [add_offline_desc], Source={x:Static loc:Loc.Instance}}"
                                                            Style="{StaticResource RowDesc}" Margin="0,4,0,14"/>
                                                 <TextBox x:Name="NewAccountNameBox" Style="{StaticResource TB}"
                                                          MaxLength="16" Margin="0,0,0,12"/>
-                                                <Button Content="ADD OFFLINE" Style="{StaticResource BtnSecondary}"
+                                                <Button Content="{Binding [add_offline_btn], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}"
                                                         HorizontalAlignment="Stretch" Click="AddOfflineAccountConfirm_Click"/>
                                             </StackPanel>
                                         </Border>
                                         <Border Style="{StaticResource Card}">
                                             <StackPanel>
-                                                <TextBlock Text="MICROSOFT ACCOUNT" Style="{StaticResource Label}"/>
-                                                <TextBlock Text="Sign in with your Microsoft account to play Minecraft."
+                                                <TextBlock Text="{Binding [ms_account], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}"/>
+                                                <TextBlock Text="{Binding [ms_desc], Source={x:Static loc:Loc.Instance}}"
                                                            Style="{StaticResource RowDesc}" Margin="0,4,0,14"/>
-                                                <Button x:Name="MicrosoftLoginButton" Content="SIGN IN WITH MICROSOFT"
+                                                <Button x:Name="MicrosoftLoginButton" Content="{Binding [ms_signin], Source={x:Static loc:Loc.Instance}}"
                                                         Style="{StaticResource BtnPrimary}" HorizontalAlignment="Stretch"
                                                         Click="AddMicrosoftAccountConfirm_Click"/>
                                             </StackPanel>
@@ -1110,7 +1234,7 @@
                                         <RowDefinition Height="Auto"/>
                                         <RowDefinition Height="*"/>
                                     </Grid.RowDefinitions>
-                                    <TextBlock Text="SAVED ACCOUNTS" Style="{StaticResource Label}" Margin="0,0,0,12"/>
+                                    <TextBlock Text="{Binding [saved_accounts], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}" Margin="0,0,0,12"/>
                                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
                                         <ItemsControl x:Name="AccountsListBox">
                                             <ItemsControl.ItemTemplate>
@@ -1133,15 +1257,27 @@
                                                                            FontSize="10" Margin="0,2,0,0"/>
                                                             </StackPanel>
                                                             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                                <Button Tag="{Binding Id}" Content="SELECT"
+                                                                <Button Tag="{Binding Id}" Content="{Binding [select], Source={x:Static loc:Loc.Instance}}"
                                                                         Style="{StaticResource BtnSecondary}" Padding="12,7"
                                                                         FontSize="10" Margin="0,0,8,0" Click="SelectAccount_Click"/>
                                                                 <Button Tag="{Binding Id}" Style="{StaticResource BtnIcon}"
-                                                                        ToolTip="Remove account" Click="DeleteAccount_Click">
+                                                                        ToolTip="{Binding [remove_account_tip], Source={x:Static loc:Loc.Instance}}" Click="DeleteAccount_Click">
                                                                     <Button.Content>
                                                                         <Path Data="{StaticResource IconDelete}" Fill="#EF4444"
                                                                               Width="14" Height="14" Stretch="Uniform"/>
                                                                     </Button.Content>
+                                                                    <Button.Template>
+                                                                        <ControlTemplate TargetType="Button">
+                                                                            <Border x:Name="Bd" Background="Transparent" CornerRadius="7" Width="32" Height="32">
+                                                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                                            </Border>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                                    <Setter TargetName="Bd" Property="Background" Value="#2D0A0A"/>
+                                                                                </Trigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </Button.Template>
                                                                 </Button>
                                                             </StackPanel>
                                                         </Grid>
@@ -1162,12 +1298,12 @@
                         <Grid Margin="20,0,10,0">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <Ellipse Width="7" Height="7" Fill="#10B981" Margin="0,0,8,0"/>
-                                <TextBlock x:Name="StatusText" Text="Ready."
+                                <TextBlock x:Name="StatusText" Text="{Binding [status_ready], Source={x:Static loc:Loc.Instance}}"
                                            Foreground="{StaticResource TextMuted}"
                                            FontSize="11" VerticalAlignment="Center"/>
                             </StackPanel>
                             <TextBlock x:Name="DiscordStatusText"
-                                       Text="Discord: connecting…"
+                                       Text="{Binding [discord_connecting], Source={x:Static loc:Loc.Instance}}"
                                        Foreground="{StaticResource TextMuted}"
                                        FontSize="9" HorizontalAlignment="Right"
                                        VerticalAlignment="Center"/>
@@ -1183,7 +1319,7 @@
                         <Button Style="{StaticResource BtnIcon}" Tag="{StaticResource IconDiscord}"
                                 ToolTip="Discord" Margin="0,0,0,4" Click="Discord_Click"/>
                         <Button Style="{StaticResource BtnIcon}" Tag="{StaticResource IconWeb}"
-                                ToolTip="Website" Margin="0,0,0,4" Click="Website_Click"/>
+                                ToolTip="{Binding [website], Source={x:Static loc:Loc.Instance}}" Margin="0,0,0,4" Click="Website_Click"/>
                         <Button Style="{StaticResource BtnIcon}" Tag="{StaticResource IconYT}"
                                 ToolTip="YouTube" Margin="0,0,0,4" Click="YouTube_Click"/>
                         <Button Style="{StaticResource BtnIcon}" Tag="{StaticResource IconGH}"
@@ -1206,23 +1342,23 @@
                                 <TextBlock Text="❄" FontSize="36" Foreground="#60A5FA"
                                            HorizontalAlignment="Center" VerticalAlignment="Center"/>
                             </Border>
-                            <TextBlock Text="Welcome to Frost Client" Foreground="White" FontSize="24"
+                            <TextBlock Text="{Binding [wiz_welcome], Source={x:Static loc:Loc.Instance}}" Foreground="White" FontSize="24"
                                        FontWeight="Bold" HorizontalAlignment="Center"/>
-                            <TextBlock Text="Let's get your launcher ready." Foreground="{StaticResource TextMuted}"
+                            <TextBlock Text="{Binding [wiz_lets], Source={x:Static loc:Loc.Instance}}" Foreground="{StaticResource TextMuted}"
                                        FontSize="12" HorizontalAlignment="Center" Margin="0,8,0,24"/>
                             <Border Background="#0A1428" CornerRadius="10" Padding="16" Margin="0,0,0,22">
                                 <StackPanel>
-                                    <TextBlock Text="QUICK SETUP" Foreground="#60A5FA" FontWeight="Bold"
+                                    <TextBlock Text="{Binding [quick_setup], Source={x:Static loc:Loc.Instance}}" Foreground="#60A5FA" FontWeight="Bold"
                                                FontSize="10" Margin="0,0,0,10"/>
-                                    <TextBlock Text="1. Configure your Java installation."
+                                    <TextBlock Text="{Binding [wiz_1], Source={x:Static loc:Loc.Instance}}"
                                                Foreground="White" FontSize="11" Margin="0,0,0,7"/>
-                                    <TextBlock Text="2. Choose your account."
+                                    <TextBlock Text="{Binding [wiz_2], Source={x:Static loc:Loc.Instance}}"
                                                Foreground="White" FontSize="11" Margin="0,0,0,7"/>
-                                    <TextBlock Text="3. Start playing Minecraft."
+                                    <TextBlock Text="{Binding [wiz_3], Source={x:Static loc:Loc.Instance}}"
                                                Foreground="White" FontSize="11"/>
                                 </StackPanel>
                             </Border>
-                            <Button Content="GET STARTED" Style="{StaticResource BtnPrimary}"
+                            <Button Content="{Binding [get_started], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnPrimary}"
                                     HorizontalAlignment="Stretch" Click="Wizard_Step1_Next_Click"/>
                         </StackPanel>
                     </Border>
@@ -1233,27 +1369,27 @@
                             BorderThickness="1" CornerRadius="18" HorizontalAlignment="Center"
                             VerticalAlignment="Center">
                         <StackPanel>
-                            <TextBlock Text="Java Configuration" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                            <TextBlock Text="Select the Java executable used to launch Minecraft."
+                            <TextBlock Text="{Binding [java_config], Source={x:Static loc:Loc.Instance}}" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                            <TextBlock Text="{Binding [java_config_desc], Source={x:Static loc:Loc.Instance}}"
                                        Foreground="{StaticResource TextMuted}" FontSize="11"
                                        TextWrapping="Wrap" Margin="0,7,0,24"/>
-                            <TextBlock Text="JAVA EXECUTABLE" Style="{StaticResource Label}"/>
+                            <TextBlock Text="{Binding [java_exe_caps], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}"/>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBox x:Name="WizardJavaPathBox" Style="{StaticResource TB}" Margin="0,0,8,0"/>
-                                <Button Grid.Column="1" Content="BROWSE" Style="{StaticResource BtnSecondary}"
+                                <Button Grid.Column="1" Content="{Binding [browse], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}"
                                         Click="Wizard_BrowseJava_Click"/>
                             </Grid>
-                            <TextBlock Text="Leave empty for automatic Java detection."
+                            <TextBlock Text="{Binding [java_auto], Source={x:Static loc:Loc.Instance}}"
                                        Foreground="{StaticResource TextMuted}" FontSize="10"
                                        TextWrapping="Wrap" Margin="0,9,0,26"/>
                             <Grid>
-                                <Button Content="BACK" Style="{StaticResource BtnSecondary}"
+                                <Button Content="{Binding [back], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}"
                                         HorizontalAlignment="Left" Click="Wizard_Step2_Back_Click"/>
-                                <Button Content="CONTINUE" Style="{StaticResource BtnPrimary}"
+                                <Button Content="{Binding [continue], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnPrimary}"
                                         HorizontalAlignment="Right" Click="Wizard_Step2_Next_Click"/>
                             </Grid>
                         </StackPanel>
@@ -1266,18 +1402,18 @@
                             VerticalAlignment="Center">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel Margin="0,0,8,0">
-                                <TextBlock Text="Choose Your Account" FontSize="22" FontWeight="Bold" Foreground="White"/>
-                                <TextBlock Text="How do you want to authenticate with Frost Client?"
+                                <TextBlock Text="{Binding [choose_account], Source={x:Static loc:Loc.Instance}}" FontSize="22" FontWeight="Bold" Foreground="White"/>
+                                <TextBlock Text="{Binding [choose_account_desc], Source={x:Static loc:Loc.Instance}}"
                                            Foreground="{StaticResource TextMuted}" FontSize="11"
                                            TextWrapping="Wrap" Margin="0,7,0,20"/>
 
                                 <Border Background="#0A1428" CornerRadius="10" Padding="18" Margin="0,0,0,12">
                                     <StackPanel>
-                                        <TextBlock Text="MICROSOFT ACCOUNT" Foreground="White"
+                                        <TextBlock Text="{Binding [ms_account], Source={x:Static loc:Loc.Instance}}" Foreground="White"
                                                    FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/>
-                                        <TextBlock Text="Sign in with your official Minecraft account."
+                                        <TextBlock Text="{Binding [ms_official], Source={x:Static loc:Loc.Instance}}"
                                                    Foreground="{StaticResource TextMuted}" FontSize="10" Margin="0,0,0,14"/>
-                                        <Button Content="LOGIN WITH MICROSOFT" Style="{StaticResource BtnPrimary}"
+                                        <Button Content="{Binding [login_ms], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnPrimary}"
                                                 HorizontalAlignment="Stretch"
                                                 Click="Wizard_LoginMicrosoft_Click"/>
                                     </StackPanel>
@@ -1285,19 +1421,19 @@
 
                                 <Border Background="#0A1428" CornerRadius="10" Padding="18" Margin="0,0,0,18">
                                     <StackPanel>
-                                        <TextBlock Text="OFFLINE ACCOUNT" Foreground="White"
+                                        <TextBlock Text="{Binding [offline_account], Source={x:Static loc:Loc.Instance}}" Foreground="White"
                                                    FontWeight="Bold" FontSize="11" Margin="0,0,0,8"/>
-                                        <TextBlock Text="Enter a local username (no Microsoft needed)."
+                                        <TextBlock Text="{Binding [offline_desc], Source={x:Static loc:Loc.Instance}}"
                                                    Foreground="{StaticResource TextMuted}" FontSize="10" Margin="0,0,0,12"/>
                                         <TextBox x:Name="UsernameBox" Style="{StaticResource TB}"
                                                  Text="FrostPlayer" MaxLength="16" Margin="0,0,0,12"/>
-                                        <Button Content="CONTINUE OFFLINE" Style="{StaticResource BtnSecondary}"
+                                        <Button Content="{Binding [continue_offline], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}"
                                                 HorizontalAlignment="Stretch"
                                                 Click="Wizard_LoginOffline_Click"/>
                                     </StackPanel>
                                 </Border>
 
-                                <Button Content="BACK" Style="{StaticResource BtnSecondary}"
+                                <Button Content="{Binding [back], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}"
                                         HorizontalAlignment="Left" Click="Wizard_Step4_Back_Click"/>
                             </StackPanel>
                         </ScrollViewer>
@@ -1310,11 +1446,11 @@
                 <Border Width="420" Padding="28" Background="#F00A1528" BorderBrush="#29466F"
                         BorderThickness="1" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
-                        <TextBlock x:Name="ConfirmTitle" Text="Confirm action" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,0,0,8"/>
-                        <TextBlock x:Name="ConfirmMessage" Text="Are you sure?" Foreground="{StaticResource TextMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,24"/>
+                        <TextBlock x:Name="ConfirmTitle" Text="{Binding [confirm_action], Source={x:Static loc:Loc.Instance}}" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,0,0,8"/>
+                        <TextBlock x:Name="ConfirmMessage" Text="{Binding [are_you_sure], Source={x:Static loc:Loc.Instance}}" Foreground="{StaticResource TextMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,0,0,24"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="CANCEL" Style="{StaticResource BtnSecondary}" MinWidth="100" Margin="0,0,10,0" Click="ConfirmCancel_Click"/>
-                            <Button Content="DELETE" Style="{StaticResource BtnPrimary}" MinWidth="100" Click="ConfirmAccept_Click"/>
+                            <Button Content="{Binding [cancel], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}" MinWidth="100" Margin="0,0,10,0" Click="ConfirmCancel_Click"/>
+                            <Button Content="{Binding [delete_btn], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnPrimary}" MinWidth="100" Click="ConfirmAccept_Click"/>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -1327,19 +1463,19 @@
                         BorderThickness="1" CornerRadius="14" HorizontalAlignment="Center"
                         VerticalAlignment="Center">
                     <StackPanel>
-                        <TextBlock x:Name="RenameTitle" Text="Rename Version" Foreground="White" FontSize="18"
+                        <TextBlock x:Name="RenameTitle" Text="{Binding [rename_version], Source={x:Static loc:Loc.Instance}}" Foreground="White" FontSize="18"
                                    FontWeight="Bold" Margin="0,0,0,6"/>
                         <TextBlock x:Name="RenameSubText"
-                                   Text="Enter a display name for this version."
+                                   Text="{Binding [rename_desc], Source={x:Static loc:Loc.Instance}}"
                                    Foreground="{StaticResource TextMuted}" FontSize="11"
                                    TextWrapping="Wrap" Margin="0,0,0,18"/>
-                        <TextBlock x:Name="RenameLabel" Text="DISPLAY NAME" Style="{StaticResource Label}"/>
+                        <TextBlock x:Name="RenameLabel" Text="{Binding [display_name], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}"/>
                         <TextBox x:Name="RenameBox" Style="{StaticResource TB}" MaxLength="50" Margin="0,0,0,20"
                                  KeyDown="RenameBox_KeyDown"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                            <Button Content="CANCEL" Style="{StaticResource BtnSecondary}"
+                            <Button Content="{Binding [cancel], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}"
                                     Margin="0,0,10,0" Click="RenameCancel_Click"/>
-                            <Button Content="SAVE" Style="{StaticResource BtnPrimary}"
+                            <Button Content="{Binding [save], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnPrimary}"
                                     MinWidth="90" Click="RenameSave_Click"/>
                         </StackPanel>
                     </StackPanel>
@@ -1351,17 +1487,17 @@
                 <Border Width="460" Padding="30" Background="#F00A1528" BorderBrush="#29466F"
                         BorderThickness="1" CornerRadius="16" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <StackPanel>
-                        <TextBlock Text="Frost Client Resources" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,0,0,6"/>
-                        <TextBlock x:Name="ResourcesStatusText" Text="Checking the local libraries folder…" Foreground="{StaticResource TextMuted}"
+                        <TextBlock Text="{Binding [resources_title], Source={x:Static loc:Loc.Instance}}" Foreground="White" FontSize="19" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <TextBlock x:Name="ResourcesStatusText" Text="{Binding [resources_checking], Source={x:Static loc:Loc.Instance}}" Foreground="{StaticResource TextMuted}"
                                    FontSize="12" TextWrapping="Wrap" Margin="0,0,0,18"/>
                         <ProgressBar x:Name="ResourcesProgress" Height="6" Minimum="0" Maximum="100" Value="0"
                                      Foreground="#3B82F6" Background="#0D1E3A" BorderThickness="0" Margin="0,0,0,8"/>
                         <TextBlock x:Name="ResourcesPercentText" Text="0%" Foreground="{StaticResource TextMuted}"
                                    FontSize="11" HorizontalAlignment="Right" Margin="0,0,0,6"/>
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
-                            <Button x:Name="ResourcesSkipButton" Content="SKIP" Style="{StaticResource BtnSecondary}"
+                            <Button x:Name="ResourcesSkipButton" Content="{Binding [skip], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnSecondary}"
                                     MinWidth="90" Margin="0,0,10,0" Visibility="Collapsed" Click="ResourcesSkip_Click"/>
-                            <Button x:Name="ResourcesRetryButton" Content="RETRY" Style="{StaticResource BtnPrimary}"
+                            <Button x:Name="ResourcesRetryButton" Content="{Binding [retry], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource BtnPrimary}"
                                     MinWidth="90" Visibility="Collapsed" Click="ResourcesRetry_Click"/>
                         </StackPanel>
                     </StackPanel>

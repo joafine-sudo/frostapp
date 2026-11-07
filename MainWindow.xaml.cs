@@ -38,6 +38,12 @@ public sealed class VersionEntry
         RealId = realId;
         DisplayName = displayName;
     }
+
+    // WPF falls back to ToString() in a few corners of a ComboBox's template (the closed
+    // "selection box" in particular) even when DisplayMemberPath is set. Without this
+    // override those spots show "FrostClient.VersionEntry" (the .NET type name) instead
+    // of the version's actual display name.
+    public override string ToString() => DisplayName;
 }
 
 // Saved launcher account: offline or Microsoft.
@@ -52,7 +58,7 @@ public sealed class AccountEntry
     public bool IsActive { get; set; }
 
     [System.Text.Json.Serialization.JsonIgnore]
-    public string TypeLabel => Type == "microsoft" ? "Microsoft" : "Offline";
+    public string TypeLabel => Type == "microsoft" ? "Microsoft" : Loc.T("type_offline");
 
     [System.Text.Json.Serialization.JsonIgnore]
     public string Letter => string.IsNullOrWhiteSpace(DisplayName) ? "?" : DisplayName[..1].ToUpperInvariant();
@@ -107,6 +113,11 @@ public partial class MainWindow : Window
     private string? _pendingConfirmVersionId;
     private string? _pendingConfirmAccountId;
 
+    // Bumped every time the active account changes, so an in-flight avatar
+    // download that belongs to a previously-selected account never overwrites
+    // the avatar of whatever account is actually selected when it finishes.
+    private int _profileRequestId;
+
     // ── Discord ────────────────────────────────────────────
     private DiscordRpcClient? _discord;
     private const string AppId        = "1426668060642644209";
@@ -119,8 +130,11 @@ public partial class MainWindow : Window
         try
         {
             _loginHandler = JELoginHandlerBuilder.BuildDefault();
+            Loc.SetLanguage(Loc.DetectSystemLanguage());
+            Loc.LanguageChanged += RefreshLocalizedTexts;
             InitializeComponent();
             LoadSettings();
+            SyncLanguageBox();
             InitDiscord();
         }
         catch (Exception ex)
@@ -139,9 +153,9 @@ public partial class MainWindow : Window
         try
         {
             _discord = new DiscordRpcClient(AppId);
-            _discord.OnReady += (_, e) => SetDiscordStatus($"Discord: {e.User.Username}", true);
-            _discord.OnConnectionFailed += (_, _) => SetDiscordStatus("Discord: not running", false);
-            _discord.OnError += (_, e) => SetDiscordStatus($"Discord error: {e.Message}", false);
+            _discord.OnReady += (_, e) => SetDiscordStatus(Loc.T("discord_user", e.User.Username), true);
+            _discord.OnConnectionFailed += (_, _) => SetDiscordStatus(Loc.T("discord_not_running"), false);
+            _discord.OnError += (_, e) => SetDiscordStatus(Loc.T("discord_error", e.Message), false);
             _discord.Initialize();
             UpdatePresence("In Launcher", "Frost Client", null);
         }
@@ -202,7 +216,7 @@ public partial class MainWindow : Window
 
         await EnsureFrostResourcesAsync();
         await RefreshVersionsAsync();
-        SetStatus("Ready.");
+        SetStatus(Loc.T("status_ready"));
         try { await LoadRemoteVersionsAsync(); } catch { }
     }
 
@@ -256,22 +270,32 @@ public partial class MainWindow : Window
     private void UpdateProfileUI()
     {
         bool microsoft = _session?.UserType == "msa";
-        string name = _session?.Username ?? "Not logged in";
+        string name = _session?.Username ?? Loc.T("not_logged_in");
 
         if (TopPlayerName != null) TopPlayerName.Text = name;
         if (AccountPlayerName != null) AccountPlayerName.Text = name;
         if (AccountStatusDetail != null)
-            AccountStatusDetail.Text = _session == null ? "Not logged in"
-                : microsoft ? $"Microsoft · {name}" : $"Offline · {name}";
+            AccountStatusDetail.Text = _session == null ? Loc.T("not_logged_in")
+                : microsoft ? $"Microsoft · {name}" : Loc.T("type_offline") + " · " + name;
 
-        _ = LoadPlayerProfileAsync(name, microsoft ? _session?.UUID : null);
+        // Clear whatever face was showing before. Otherwise, switching accounts (or logging
+        // out) leaves the previous account's skin on screen until/unless a new one loads,
+        // which makes the profile picture look like it belongs to the wrong account.
+        if (TopPlayerAvatar != null) TopPlayerAvatar.Source = null;
+        if (AccountPlayerAvatar != null) AccountPlayerAvatar.Source = null;
+
+        // Each call gets its own request id. If the user switches accounts again before this
+        // fetch finishes, the stale result is discarded instead of being drawn over the
+        // newer (correct) avatar — see the check in LoadPlayerProfileAsync.
+        int requestId = ++_profileRequestId;
+        _ = LoadPlayerProfileAsync(name, microsoft ? _session?.UUID : null, requestId);
     }
 
     // Loads the player's actual Minecraft skin head. Try multiple skin renderers so
     // a temporary outage from one provider does not leave the profile avatar blank.
-    private async Task LoadPlayerProfileAsync(string playerName, string? knownUuid)
+    private async Task LoadPlayerProfileAsync(string playerName, string? knownUuid, int requestId)
     {
-        if (string.IsNullOrWhiteSpace(playerName) || playerName == "Not logged in") return;
+        if (string.IsNullOrWhiteSpace(playerName) || playerName == Loc.T("not_logged_in")) return;
 
         string? uuid = string.IsNullOrWhiteSpace(knownUuid) ? null : knownUuid.Replace("-", "");
         if (string.IsNullOrWhiteSpace(uuid) && IsValidName(playerName))
@@ -303,6 +327,8 @@ public partial class MainWindow : Window
 
         foreach (var url in urls)
         {
+            // Bail out early if a newer request has already superseded this one.
+            if (requestId != _profileRequestId) return;
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
@@ -311,6 +337,11 @@ public partial class MainWindow : Window
                 if (!response.IsSuccessStatusCode) continue;
                 var bytes = await response.Content.ReadAsByteArrayAsync();
                 if (bytes.Length < 100) continue;
+
+                // The active account may have changed while this download was in flight.
+                // Discard the result instead of drawing a stale avatar over the current one.
+                if (requestId != _profileRequestId) return;
+
                 await Dispatcher.InvokeAsync(() =>
                 {
                     SetAvatarImage(TopPlayerAvatar, bytes);
@@ -368,14 +399,14 @@ public partial class MainWindow : Window
     }
     private void Wizard_BrowseJava_Click(object s, RoutedEventArgs e)
     {
-        var d = new OpenFileDialog { Title = "Select javaw.exe", Filter = "Java|javaw.exe|All|*.*", CheckFileExists = true };
+        var d = new OpenFileDialog { Title = Loc.T("select_javaw"), Filter = "Java|javaw.exe|All|*.*", CheckFileExists = true };
         if (d.ShowDialog() == true && WizardJavaPathBox != null) WizardJavaPathBox.Text = d.FileName;
     }
     private void Wizard_Step2_Next_Click(object s, RoutedEventArgs e)
     {
         if (!string.IsNullOrWhiteSpace(WizardJavaPathBox?.Text) && !File.Exists(WizardJavaPathBox.Text))
         {
-            MessageBox.Show("The file does not exist. Pick a valid javaw.exe or leave it empty.", "Invalid Java", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(Loc.T("err_java_missing"), Loc.T("title_invalid_java"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         if (JavaPathBox != null) JavaPathBox.Text = WizardJavaPathBox?.Text?.Trim() ?? "";
@@ -402,7 +433,7 @@ public partial class MainWindow : Window
         var name = UsernameBox?.Text?.Trim();
         if (!IsValidName(name))
         {
-            MessageBox.Show("Name must be 3–16 characters (letters, numbers or _).", "Invalid Name", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(Loc.T("err_name"), Loc.T("title_invalid_name"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
         var acc = new AccountEntry { DisplayName = name!, Type = "offline" };
@@ -438,6 +469,11 @@ public partial class MainWindow : Window
         public int    ResolutionIndex { get; set; } = 0;
         public int    OnLaunchIndex   { get; set; } = 0;
         public bool   DiscordPresence { get; set; } = true;
+        // File name of the background image shown behind the launcher, expected to sit
+        // beside the executable (default.png, iceland.jpg, house.jpg, fox.jpg, ...).
+        public string Wallpaper       { get; set; } = "default.png";
+        // UI language code (en-GB, pt-PT, es-ES, fr-FR, ru-RU, th-TH). Empty = follow Windows.
+        public string Language        { get; set; } = "";
         // version display names: { realId -> displayName }
         public Dictionary<string, string> VersionNames { get; set; } = new();
 
@@ -458,6 +494,7 @@ public partial class MainWindow : Window
         {
             if (!File.Exists(_settingsFile)) { ShowWizard(); return; }
             _cfg = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(_settingsFile)) ?? new();
+            if (!string.IsNullOrWhiteSpace(_cfg.Language)) Loc.SetLanguage(_cfg.Language);
 
             RamSlider.Value         = Math.Clamp(_cfg.RamGb, 1, 16);
             JavaArgumentsBox.Text   = _cfg.JavaArguments;
@@ -466,6 +503,14 @@ public partial class MainWindow : Window
             ResolutionBox.SelectedIndex = Math.Clamp(_cfg.ResolutionIndex, 0, ResolutionBox.Items.Count - 1);
             OnLaunchBox.SelectedIndex   = Math.Clamp(_cfg.OnLaunchIndex,   0, OnLaunchBox.Items.Count - 1);
             DiscordToggle.IsChecked  = _cfg.DiscordPresence;
+
+            if (WallpaperBox != null)
+            {
+                var match = WallpaperBox.Items.OfType<ComboBoxItem>()
+                    .FirstOrDefault(i => (i.Tag as string) == _cfg.Wallpaper);
+                WallpaperBox.SelectedItem = match ?? WallpaperBox.Items.OfType<ComboBoxItem>().FirstOrDefault();
+            }
+            ApplyWallpaper(_cfg.Wallpaper);
 
             _accounts = _cfg.Accounts ?? new();
             foreach (var account in _accounts)
@@ -519,12 +564,12 @@ public partial class MainWindow : Window
     private void SaveSettings_Click(object s, RoutedEventArgs e)
     {
         SaveSilently();
-        SetStatus("Settings saved.");
-        MessageBox.Show("Settings saved!", "Frost Client");
+        SetStatus(Loc.T("status_settings_saved"));
+        MessageBox.Show(Loc.T("box_settings_saved"), "Frost Client");
     }
     private void BrowseJava_Click(object s, RoutedEventArgs e)
     {
-        var d = new OpenFileDialog { Title = "Select javaw.exe", Filter = "Java|javaw.exe|All|*.*", CheckFileExists = true };
+        var d = new OpenFileDialog { Title = Loc.T("select_javaw"), Filter = "Java|javaw.exe|All|*.*", CheckFileExists = true };
         if (d.ShowDialog() == true && JavaPathBox != null) { JavaPathBox.Text = d.FileName; SaveSilently(); }
     }
     private void Settings_TextChanged(object s, TextChangedEventArgs e)   { if (IsLoaded) SaveSilently(); }
@@ -534,6 +579,101 @@ public partial class MainWindow : Window
         if (RamLabel != null) RamLabel.Text = $"{(int)e.NewValue} GB";
         if (IsLoaded) SaveSilently();
     }
+    // Swaps the launcher's background image. Wallpaper files (default.png, iceland.jpg,
+    // house.jpg, fox.jpg, ...) are expected to sit beside the executable, same as the
+    // original "default.png". If a file is missing we keep whatever is currently showing
+    // instead of crashing the launcher.
+    private void ApplyWallpaper(string? fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName) || BackgroundImageBrush == null) return;
+        try
+        {
+            // 1) a file with that name beside the .exe wins (lets people drop in their own image),
+            // 2) otherwise use the copy embedded inside the .exe.
+            var external = Path.Combine(AppContext.BaseDirectory, fileName);
+            var uri = File.Exists(external)
+                ? new Uri(external, UriKind.Absolute)
+                : new Uri("pack://application:,,,/" + fileName, UriKind.Absolute);
+
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.UriSource = uri;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            BackgroundImageBrush.ImageSource = bitmap;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Wallpaper '{fileName}' could not be loaded: {ex.Message}");
+        }
+    }
+
+    private void Wallpaper_Changed(object s, SelectionChangedEventArgs e)
+    {
+        if (WallpaperBox?.SelectedItem is not ComboBoxItem { Tag: string file }) return;
+        ApplyWallpaper(file);
+        if (IsLoaded)
+        {
+            _cfg.Wallpaper = file;
+            SaveSilently();
+        }
+    }
+
+    // ── LANGUAGE ───────────────────────────────────────────────
+    private void Language_Changed(object s, SelectionChangedEventArgs e)
+    {
+        if (LanguageBox?.SelectedItem is not ComboBoxItem { Tag: string code }) return;
+        _cfg.Language = code;
+        Loc.SetLanguage(code);
+        if (IsLoaded) SaveSilently();
+    }
+
+    private void SyncLanguageBox()
+    {
+        if (LanguageBox == null) return;
+        var items = LanguageBox.Items.OfType<ComboBoxItem>().ToList();
+        LanguageBox.SelectedItem = items.FirstOrDefault(i => (i.Tag as string) == Loc.CurrentCode)
+                                   ?? items.FirstOrDefault();
+    }
+
+    // Texts that are assigned from code (not bound in XAML) are re-applied here
+    // whenever the language changes.
+    private void RefreshLocalizedTexts()
+    {
+        if (!IsLoaded) return;
+        try
+        {
+            if (_session == null)
+            {
+                var t = Loc.T("not_logged_in");
+                if (TopPlayerName != null) TopPlayerName.Text = t;
+                if (AccountPlayerName != null) AccountPlayerName.Text = t;
+                if (AccountStatusDetail != null) AccountStatusDetail.Text = t;
+            }
+            else if (AccountStatusDetail != null)
+            {
+                string n = _session.Username ?? "";
+                AccountStatusDetail.Text = _session.UserType == "msa"
+                    ? $"Microsoft · {n}"
+                    : Loc.T("type_offline") + " · " + n;
+            }
+
+            RenderAccounts();
+
+            var entry = GetSelectedEntry();
+            if (entry != null) UpdateHomeVersion(entry);
+            else
+            {
+                if (PlayButton != null) PlayButton.Content = Loc.T("no_version");
+                if (HomeSubText != null) HomeSubText.Text = Loc.T("install_to_start");
+            }
+
+            if (!_busy && !_gameRunning) SetStatus(Loc.T("status_ready"));
+        }
+        catch (Exception ex) { Debug.WriteLine("RefreshLocalizedTexts: " + ex.Message); }
+    }
+
     private void JvmPreset_Click(object s, RoutedEventArgs e)
     {
         if (s is not FrameworkElement { Tag: string key } || JavaArgumentsBox == null) return;
@@ -572,13 +712,13 @@ public partial class MainWindow : Window
         {
             try
             {
-                SetStatus("Restoring Microsoft session…");
+                SetStatus(Loc.T("restoring_ms"));
                 _session = await _loginHandler.AuthenticateSilently();
             }
             catch
             {
                 _session = null;
-                SetStatus("Microsoft session expired. Please log in again.");
+                SetStatus(Loc.T("ms_expired"));
             }
         }
         else
@@ -598,7 +738,7 @@ public partial class MainWindow : Window
         var name = NewAccountNameBox?.Text?.Trim() ?? "";
         if (!IsValidName(name))
         {
-            MessageBox.Show("Name must be 3–16 characters (letters, numbers or _).", "Invalid Name", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(Loc.T("err_name"), Loc.T("title_invalid_name"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -611,7 +751,7 @@ public partial class MainWindow : Window
         UpdateProfileUI();
         SaveSilently();
         RenderAccounts();
-        SetStatus($"Offline account '{name}' added.");
+        SetStatus(Loc.T("offline_added", name));
         if (NewAccountNameBox != null) NewAccountNameBox.Text = "";
     }
 
@@ -622,7 +762,7 @@ public partial class MainWindow : Window
         if (MicrosoftLoginButton != null) MicrosoftLoginButton.IsEnabled = false;
         try
         {
-            SetStatus("Opening Microsoft login…");
+            SetStatus(Loc.T("opening_ms"));
             var session = await _loginHandler.AuthenticateInteractively();
             _session = session;
 
@@ -643,12 +783,12 @@ public partial class MainWindow : Window
             UpdateProfileUI();
             RenderAccounts();
             SaveSilently();
-            SetStatus($"Logged in as {session.Username}.");
+            SetStatus(Loc.T("logged_in_as", session.Username));
         }
         catch (Exception ex)
         {
-            SetStatus("Login failed.");
-            MessageBox.Show(ex.Message, "Login Error");
+            SetStatus(Loc.T("login_failed"));
+            MessageBox.Show(ex.Message, Loc.T("title_login_error"));
         }
         finally { if (MicrosoftLoginButton != null) MicrosoftLoginButton.IsEnabled = true; }
     }
@@ -664,7 +804,7 @@ public partial class MainWindow : Window
         UpdateProfileUI();
         SaveSilently();
         RenderAccounts();
-        SetStatus($"Active account: {acc.DisplayName}.");
+        SetStatus(Loc.T("active_account_status", acc.DisplayName));
     }
 
     private void DeleteAccount_Click(object s, RoutedEventArgs e)
@@ -675,8 +815,8 @@ public partial class MainWindow : Window
 
         _pendingConfirmAccountId = id;
         _pendingConfirmVersionId = null;
-        ConfirmTitle.Text = "Delete account?";
-        ConfirmMessage.Text = $"Remove '{acc.DisplayName}' from this launcher? This does not delete the online account itself.";
+        ConfirmTitle.Text = Loc.T("delete_account_q");
+        ConfirmMessage.Text = Loc.T("delete_account_msg", acc.DisplayName);
         ConfirmOverlay.Visibility = Visibility.Visible;
     }
 
@@ -811,10 +951,14 @@ public partial class MainWindow : Window
 
             _versions = ids.Select(id => new VersionEntry(id!, GetDisplayName(id!))).ToList();
 
-            // ComboBox mostra os nomes de exibição
+            // The ComboBox binds directly to the VersionEntry objects (via DisplayMemberPath
+            // in XAML) instead of to a list of display-name strings. Matching by display name
+            // used to break whenever two versions ended up with the same display name (e.g.
+            // two versions renamed to the same label) — SelectedItem/FirstOrDefault would then
+            // silently resolve to the wrong version, and PLAY/rename/delete could act on it.
             if (VersionBox != null)
             {
-                VersionBox.ItemsSource   = _versions.Select(e => e.DisplayName).ToList();
+                VersionBox.ItemsSource   = _versions;
                 VersionBox.SelectedIndex = 0;
             }
             if (VersionList != null) VersionList.ItemsSource = _versions;
@@ -825,32 +969,28 @@ public partial class MainWindow : Window
 
             if (targetEntry != null)
             {
-                if (VersionBox != null) VersionBox.SelectedItem = targetEntry.DisplayName;
+                if (VersionBox != null) VersionBox.SelectedItem = targetEntry;
                 UpdateHomeVersion(targetEntry);
             }
             else
             {
-                if (PlayButton != null) PlayButton.Content = "NO VERSION";
-                if (HomeSubText != null) HomeSubText.Text = "Install a version to get started.";
+                if (PlayButton != null) PlayButton.Content = Loc.T("no_version");
+                if (HomeSubText != null) HomeSubText.Text = Loc.T("install_to_start");
                 if (HomeVersionLabel != null) HomeVersionLabel.Text = "";
             }
         }
         catch (Exception ex) { Debug.WriteLine("RefreshVersions: " + ex.Message); }
     }
 
-    // Consulta direta à lista privada _versions em memória
-    private VersionEntry? GetSelectedEntry()
-    {
-        var display = VersionBox?.SelectedItem as string;
-        if (string.IsNullOrEmpty(display)) return null;
-        return _versions.FirstOrDefault(e => e.DisplayName == display);
-    }
+    // The ComboBox items are VersionEntry objects, so the selected entry can be read back
+    // directly — no more matching by display-name text (which broke on duplicate names).
+    private VersionEntry? GetSelectedEntry() => VersionBox?.SelectedItem as VersionEntry;
 
     private void UpdateHomeVersion(VersionEntry e)
     {
-        if (PlayButton       != null) PlayButton.Content       = "PLAY";
+        if (PlayButton       != null) PlayButton.Content       = Loc.T("play");
         if (HomeVersionLabel != null) HomeVersionLabel.Text     = $"{e.RealId}";
-        if (HomeSubText      != null) HomeSubText.Text         = $"{e.DisplayName}  ·  Ready to launch.";
+        if (HomeSubText      != null) HomeSubText.Text         = Loc.T("ready_to_launch", e.DisplayName);
     }
 
     private void Version_Changed(object s, SelectionChangedEventArgs e)
@@ -925,8 +1065,7 @@ public partial class MainWindow : Window
                 ResourcesOverlay.Visibility = Visibility.Visible;
                 ResourcesProgress.Visibility = Visibility.Collapsed;
                 ResourcesPercentText.Text = "";
-                ResourcesStatusText.Text = "Download failed: " + ex.Message +
-                    "\n\nCheck your internet connection and try again.";
+                ResourcesStatusText.Text = Loc.T("download_failed", ex.Message);
                 ResourcesRetryButton.Visibility = Visibility.Visible;
                 ResourcesSkipButton.Visibility  = Visibility.Visible;
 
@@ -984,10 +1123,20 @@ public partial class MainWindow : Window
         return $"{group}/{artifact}/{version}/{artifact}-{version}{classifier}.jar";
     }
 
+    // Copies a file that was embedded into the .exe (see FrostClient.csproj) to disk.
+    private static bool ExtractEmbedded(string resourceName, string destination)
+    {
+        using var s = typeof(MainWindow).Assembly.GetManifestResourceStream(resourceName);
+        if (s == null) return false;
+        using var f = File.Create(destination);
+        s.CopyTo(f);
+        return true;
+    }
+
     private async Task DownloadAndInstallResourcesAsync()
     {
         ResourcesOverlay.Visibility = Visibility.Visible;
-        SetResourcesProgress(0, "Installing Frost Client version files…");
+        SetResourcesProgress(0, Loc.T("res_installing"));
 
         // The version is shipped beside the launcher in:
         // default_version/frost client/frost client.{json,jar}
@@ -996,14 +1145,19 @@ public partial class MainWindow : Window
         var bundledJson = Path.Combine(bundledVersionDir, "frost client.json");
         var bundledJar = Path.Combine(bundledVersionDir, "frost client.jar");
 
-        if (!File.Exists(bundledJson) || !File.Exists(bundledJar))
-            throw new FileNotFoundException(
-                "Frost Client version files were not found. Expected default_version\\frost client\\frost client.json and frost client.jar beside the launcher.");
-
         Directory.CreateDirectory(FrostVersionDir);
-        File.Copy(bundledJson, FrostVersionJson, overwrite: true);
-        File.Copy(bundledJar, FrostVersionJar, overwrite: true);
-        SetResourcesProgress(20, "Reading Frost Client dependencies…");
+        if (File.Exists(bundledJson) && File.Exists(bundledJar))
+        {
+            File.Copy(bundledJson, FrostVersionJson, overwrite: true);
+            File.Copy(bundledJar, FrostVersionJar, overwrite: true);
+        }
+        else if (!(ExtractEmbedded("FrostBundle.json", FrostVersionJson) &&
+                   ExtractEmbedded("FrostBundle.jar",  FrostVersionJar)))
+        {
+            throw new FileNotFoundException(
+                "Frost Client version files were not found (neither beside the launcher nor embedded in it).");
+        }
+        SetResourcesProgress(20, Loc.T("res_reading"));
 
         using var document = JsonDocument.Parse(await File.ReadAllTextAsync(FrostVersionJson));
         if (!document.RootElement.TryGetProperty("libraries", out var libraries) ||
@@ -1059,7 +1213,7 @@ public partial class MainWindow : Window
 
         int totalJobs = jobs.Count;
         int completed = 0;
-        SetResourcesProgress(25, $"Downloading {totalJobs} missing libraries…");
+        SetResourcesProgress(25, Loc.T("res_downloading_libs", totalJobs));
         // A small concurrency limit avoids opening hundreds of connections at once.
         using var semaphore = new System.Threading.SemaphoreSlim(4);
         var tasks = jobs.Select(async job =>
@@ -1070,7 +1224,7 @@ public partial class MainWindow : Window
                 await DownloadFileAsync(job.Url, job.Destination);
                 int done = System.Threading.Interlocked.Increment(ref completed);
                 SetResourcesProgress(25 + (totalJobs == 0 ? 75 : done * 75d / totalJobs),
-                    $"Downloading libraries… {done}/{totalJobs}");
+                    Loc.T("res_libs_progress", done, totalJobs));
             }
             finally { semaphore.Release(); }
         });
@@ -1081,7 +1235,7 @@ public partial class MainWindow : Window
             throw new FileNotFoundException("Forge 1.8.9 library is missing after dependency download.", ForgeJarPath);
 
         File.WriteAllText(ResourcesMarker, ResourcesVersion);
-        SetResourcesProgress(100, "Frost Client installed!");
+        SetResourcesProgress(100, Loc.T("res_done"));
         await Task.Delay(400);
         ResourcesOverlay.Visibility = Visibility.Collapsed;
     }
@@ -1092,26 +1246,26 @@ public partial class MainWindow : Window
         var installBtn = (s as Button) ?? InstallButton;
 
         if (InstallVersionBox?.SelectedItem is not string mc)
-        { MessageBox.Show("Select a Minecraft version first."); return; }
+        { MessageBox.Show(Loc.T("select_mc_first")); return; }
 
         if (installBtn != null) installBtn.IsEnabled = false;
         if (InstallProgress != null) InstallProgress.Visibility = Visibility.Visible;
-        if (InstallStatusText != null) InstallStatusText.Text = $"Downloading Minecraft {mc}…";
-        SetStatus($"Installing {mc}…");
+        if (InstallStatusText != null) InstallStatusText.Text = Loc.T("downloading_mc", mc);
+        SetStatus(Loc.T("installing_mc", mc));
 
         try
         {
             var launcher = new MinecraftLauncher(new MinecraftPath(_gameDir));
             await launcher.InstallAsync(mc);
-            if (InstallStatusText != null) InstallStatusText.Text = $"{mc} installed successfully!";
-            SetStatus($"{mc} installed.");
+            if (InstallStatusText != null) InstallStatusText.Text = Loc.T("installed_ok", mc);
+            SetStatus(Loc.T("installed_status", mc));
             await RefreshVersionsAsync(mc);
         }
         catch (Exception ex)
         {
-            if (InstallStatusText != null) InstallStatusText.Text = "Installation error.";
-            SetStatus("Failed.");
-            MessageBox.Show(ex.ToString(), "Install Error");
+            if (InstallStatusText != null) InstallStatusText.Text = Loc.T("install_error");
+            SetStatus(Loc.T("failed"));
+            MessageBox.Show(ex.ToString(), Loc.T("title_install_error"));
         }
         finally
         {
@@ -1127,8 +1281,8 @@ public partial class MainWindow : Window
         if (s is not FrameworkElement { Tag: string realId }) return;
         var entry = _versions.FirstOrDefault(e => e.RealId == realId);
         if (entry == null) return;
-        if (VersionBox != null) VersionBox.SelectedItem = entry.DisplayName;
-        SetStatus($"Selected {entry.DisplayName}.");
+        if (VersionBox != null) VersionBox.SelectedItem = entry;
+        SetStatus(Loc.T("selected_version", entry.DisplayName));
     }
 
     private void DeleteVersion_Click(object s, RoutedEventArgs e)
@@ -1136,8 +1290,8 @@ public partial class MainWindow : Window
         if (s is not FrameworkElement { Tag: string realId }) return;
         _pendingConfirmVersionId = realId;
         _pendingConfirmAccountId = null;
-        ConfirmTitle.Text = "Delete this version?";
-        ConfirmMessage.Text = $"Delete '{GetDisplayName(realId)}'? Version files will be removed. Your worlds and mods will be kept.";
+        ConfirmTitle.Text = Loc.T("delete_version_q");
+        ConfirmMessage.Text = Loc.T("delete_version_msg", GetDisplayName(realId));
         ConfirmOverlay.Visibility = Visibility.Visible;
     }
 
@@ -1150,10 +1304,10 @@ public partial class MainWindow : Window
             // Remove custom name entry if any
             _cfg.VersionNames.Remove(realId);
             SaveSilently();
-            SetStatus($"Deleted {realId}.");
+            SetStatus(Loc.T("deleted_version", realId));
             await RefreshVersionsAsync();
         }
-        catch (Exception ex) { MessageBox.Show(ex.Message, "Delete Error"); }
+        catch (Exception ex) { MessageBox.Show(ex.Message, Loc.T("title_delete_error")); }
     }
 
     private void ConfirmCancel_Click(object s, RoutedEventArgs e)
@@ -1178,9 +1332,9 @@ public partial class MainWindow : Window
     private void OpenRenameOverlay(string realId)
     {
         _renameTargetId = realId;
-        RenameTitle.Text   = "Rename Version";
-        RenameLabel.Text   = "DISPLAY NAME";
-        RenameSubText.Text = $"Real id: {realId}";
+        RenameTitle.Text   = Loc.T("rename_version");
+        RenameLabel.Text   = Loc.T("display_name");
+        RenameSubText.Text = Loc.T("real_id", realId);
         RenameBox.Text     = GetDisplayName(realId);
         RenameOverlay.Visibility = Visibility.Visible;
         RenameBox.Focus();
@@ -1247,25 +1401,25 @@ public partial class MainWindow : Window
             var activeAcc = GetActiveAccount();
             if (activeAcc == null)
             {
-                MessageBox.Show("No account selected. Add one in the Account tab.", "Frost Client");
+                MessageBox.Show(Loc.T("no_account_selected"), "Frost Client");
                 return;
             }
             await RestoreActiveAccountAsync();
             UpdateProfileUI();
             if (_session == null)
             {
-                MessageBox.Show("Could not restore the selected account. Try logging in again.", "Frost Client");
+                MessageBox.Show(Loc.T("restore_account_failed"), "Frost Client");
                 return;
             }
         }
 
         var entry = GetSelectedEntry();
-        if (entry == null) { MessageBox.Show("No version selected. Go to Versions."); return; }
+        if (entry == null) { MessageBox.Show(Loc.T("no_version_selected")); return; }
         var realId = entry.RealId;
 
         _busy = true;
         if (PlayButton != null) PlayButton.IsEnabled = false;
-        SetStatus($"Preparing {entry.DisplayName}…");
+        SetStatus(Loc.T("preparing", entry.DisplayName));
         UpdatePresence($"Playing {entry.DisplayName}", realId, realId);
 
         try
@@ -1277,14 +1431,14 @@ public partial class MainWindow : Window
             // Garante que a versão Frost e as libraries (Forge, etc.) estão instaladas antes de lançar.
             if (realId.Contains("frost client", StringComparison.OrdinalIgnoreCase))
             {
-                SetStatus("Checking Frost Client resources…");
+                SetStatus(Loc.T("checking_resources"));
                 var ok = await EnsureFrostResourcesAsync();
                 if (!ok || !File.Exists(ForgeJarPath))
                 {
                     MessageBox.Show(
-                        $"Frost Client resources are not installed.\n\nStatus: {_frostSetupInfo}\n\nCheck your internet connection and press PLAY again.",
+                        Loc.T("resources_missing_box", _frostSetupInfo),
                         "Frost Client", MessageBoxButton.OK, MessageBoxImage.Warning);
-                    SetStatus("Missing resources.");
+                    SetStatus(Loc.T("missing_resources"));
                     UpdatePresence("In Launcher", "Frost Client", null);
                     return;
                 }
@@ -1322,8 +1476,8 @@ public partial class MainWindow : Window
                 }
             }
 
-            SetStatus("Verifying files…");  await Task.Delay(300);
-            SetStatus("Checking runtime…");
+            SetStatus(Loc.T("verifying"));  await Task.Delay(300);
+            SetStatus(Loc.T("checking_runtime"));
             var process = await launcher.InstallAndBuildProcessAsync(realId, options);
 
             process.EnableRaisingEvents = true;
@@ -1367,26 +1521,26 @@ public partial class MainWindow : Window
                     _gameRunning = false;
                     if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
                     UpdatePresence("In Launcher", "Frost Client", null);
-                    SetStatus("Game closed.");
+                    SetStatus(Loc.T("game_closed"));
                     if (code != 0)
                         MessageBox.Show(
-                            $"The game closed with an error (code {code}).\n\nA log was saved at:\n{logPath}\n\nSend this file to the developer.",
+                            Loc.T("game_crash_box", code, logPath),
                             "Frost Client", MessageBoxButton.OK, MessageBoxImage.Warning);
                 });
             };
             process.Start();
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
-            SetStatus($"{entry.DisplayName} is starting…");
+            SetStatus(Loc.T("starting", entry.DisplayName));
             await Task.Delay(2000);
-            SetStatus($"{entry.DisplayName} is running.");
+            SetStatus(Loc.T("running", entry.DisplayName));
 
             if (OnLaunchBox?.SelectedIndex == 1) WindowState = WindowState.Minimized;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.ToString(), "Launch Error");
-            SetStatus("Failed to launch.");
+            MessageBox.Show(ex.ToString(), Loc.T("title_launch_error"));
+            SetStatus(Loc.T("launch_failed"));
             UpdatePresence("In Launcher", "Frost Client", null);
         }
         finally

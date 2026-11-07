@@ -28,15 +28,26 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="icon.ico" />
-    <Resource Include="100480006.png" />
-    <Resource Include="snow.png" />
+    <Resource Include="icon.ico" Condition="Exists('icon.ico')" />
   </ItemGroup>
 
+  <!-- Fundos do launcher: embutidos dentro do .exe. -->
+  <ItemGroup>
+    <Resource Include="default.png" Condition="Exists('default.png')" />
+    <Resource Include="iceland.jpg" Condition="Exists('iceland.jpg')" />
+    <Resource Include="house.jpg"   Condition="Exists('house.jpg')" />
+    <Resource Include="fox.jpg"     Condition="Exists('fox.jpg')" />
+  </ItemGroup>
+
+  <!-- Versao "frost client" embutida no .exe: assim so e preciso distribuir o FrostClient.exe. -->
+  <ItemGroup>
+    <EmbeddedResource Include="default_version\frost client\frost client.json" LogicalName="FrostBundle.json" Condition="Exists('default_version\frost client\frost client.json')" />
+    <EmbeddedResource Include="default_version\frost client\frost client.jar"  LogicalName="FrostBundle.jar"  Condition="Exists('default_version\frost client\frost client.jar')" />
+  </ItemGroup>
 
   <!-- Keep the custom version files beside the launcher, not embedded in the EXE. -->
   <ItemGroup>
-    <Content Include="default_version\\**\\*">
+    <Content Include="default_version\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </Content>
