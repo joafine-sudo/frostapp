@@ -47,29 +47,24 @@ An open-source, custom Minecraft launcher built with **WPF (.NET 8)**, developed
 ---
 
 ## 📁 Relevant folder structure
-
-```
 FrostClient/
 ├─ FrostClient.csproj
 ├─ MainWindow.xaml / MainWindow.xaml.cs
 ├─ default_version/
-│  └─ frost client/
-│     ├─ frost client.json      # version manifest (libraries, main class, etc.)
-│     └─ frost client.jar
-├─ icon.ico, default.png, iceland.jpg, house.jpg, fox.jpg   # assets embedded in the .exe
+│ └─ frost client/
+│ ├─ frost client.json # version manifest (libraries, main class, etc.)
+│ └─ frost client.jar
+├─ icon.ico, default.png, iceland.jpg, house.jpg, fox.jpg # assets embedded in the .exe
 └─ installer/
-   └─ frostclient.iss            # Inno Setup script
-```
+└─ frostclient.iss # Inno Setup script
 
 On the end user's PC, the launcher uses:
+%APPDATA%.minecraft\ # standard Minecraft data folder
+%APPDATA%.minecraft\versions\frost client
+%APPDATA%.minecraft\libraries
+%APPDATA%\FrostClient\settings.json # launcher settings
+%APPDATA%\FrostClient\last-launch.log # diagnostic log
 
-```
-%APPDATA%\.minecraft\                     # standard Minecraft data folder
-%APPDATA%\.minecraft\versions\frost client\
-%APPDATA%\.minecraft\libraries\
-%APPDATA%\FrostClient\settings.json       # launcher settings
-%APPDATA%\FrostClient\last-launch.log     # diagnostic log
-```
 
 ---
 
@@ -165,6 +160,9 @@ Frost Client is **source-available**: the code is publicly visible so anyone can
 
 This project, its source code, and its branding belong exclusively to **[eu.frostclient.org](https://eu.frostclient.org)**.
 
+📜 See also: [Terms of Use](terms.md) — jurisdiction and regional legal notices.
+
 ## 🔗 Links
 
 - Website: [https://eu.frostclient.org](https://eu.frostclient.org)
+
