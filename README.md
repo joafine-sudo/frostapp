@@ -159,7 +159,11 @@ This is an open-source project maintained by an independent company. Contributio
 
 ## 📄 License
 
-This project does not currently have an open-source license. The source code is publicly visible for transparency, but no license is granted — by default, all rights are reserved by the author(s). This means that, unless stated otherwise, others may not copy, modify, or redistribute the code without explicit permission.
+Frost Client is **source-available**: the code is publicly visible so anyone can study, build, and modify it locally — but it is **not** released under a standard open-source license (MIT, GPL, etc.), since those licenses explicitly guarantee the right to resell, which this project does not grant.
+
+**Legal Notice: Resale is Prohibited.** You may study, modify, and test the project locally, but you may **not** resell this project or any modified version of it. See the full [LICENSE](LICENSE.md) and the notice on the official website: [eu.frostclient.org/?page=modsoftware](https://eu.frostclient.org/?page=modsoftware).
+
+This project, its source code, and its branding belong exclusively to **[eu.frostclient.org](https://eu.frostclient.org)**.
 
 ## 🔗 Links
 
