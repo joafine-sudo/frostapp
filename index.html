@@ -6,62 +6,156 @@
 <title>Frost Client Launcher</title>
 <style>
   :root{
-    --bg:#0D0D0F; --bg2:#131317; --card:#17171C; --border:#232329;
-    --text:#F2F2F5; --muted:#9A9AA5; --accent:#5B9DFF; --accent2:#7FB4FF;
+    --bg:#0A0A0C; --bg2:#0F0F13; --card:#141419; --card-hover:#1A1A21;
+    --border:#22222A; --border-hover:#2E2E3A;
+    --text:#F4F4F8; --muted:#8E8E9C;
+    --accent:#5B9DFF; --accent2:#7FB4FF; --accent-glow:rgba(91,157,255,.35);
+    --gradient:linear-gradient(135deg,#5B9DFF 0%,#A78BFA 50%,#7FB4FF 100%);
     color-scheme: dark;
   }
   *{box-sizing:border-box}
-  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  html{scroll-padding-top:env(safe-area-inset-top,0px); scroll-behavior:smooth}
   body{
     margin:0; background:var(--bg); color:var(--text);
     font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
     padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+    overflow-x:hidden; position:relative;
+  }
+  /* Ambient background glow */
+  body::before{
+    content:""; position:fixed; inset:0; z-index:-1; pointer-events:none;
+    background:
+      radial-gradient(600px circle at 20% -10%, rgba(91,157,255,.12), transparent 60%),
+      radial-gradient(700px circle at 85% 10%, rgba(167,139,250,.10), transparent 60%),
+      radial-gradient(900px circle at 50% 110%, rgba(127,180,255,.08), transparent 60%);
   }
   header{
     display:flex; align-items:center; justify-content:space-between;
-    padding:20px 6vw; border-bottom:1px solid var(--border);
-    position:sticky; top:0; background:rgba(13,13,15,.85); backdrop-filter:blur(8px); z-index:10;
+    padding:18px 6vw; border-bottom:1px solid var(--border);
+    position:sticky; top:0; background:rgba(10,10,12,.7); backdrop-filter:blur(14px) saturate(150%);
+    -webkit-backdrop-filter:blur(14px) saturate(150%); z-index:10;
   }
-  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:1.1rem}
-  .brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent); box-shadow:0 0 12px var(--accent)}
-  nav a{color:var(--muted); text-decoration:none; margin-left:24px; font-size:.95rem}
+  .brand{display:flex; align-items:center; gap:10px; font-weight:700; font-size:1.05rem; letter-spacing:.2px}
+  .brand .dot{
+    width:10px;height:10px;border-radius:50%;
+    background:var(--gradient);
+    box-shadow:0 0 14px var(--accent-glow), 0 0 4px var(--accent);
+    animation:pulse 2.6s ease-in-out infinite;
+  }
+  @keyframes pulse{
+    0%,100%{box-shadow:0 0 14px var(--accent-glow), 0 0 4px var(--accent); transform:scale(1)}
+    50%{box-shadow:0 0 22px var(--accent-glow), 0 0 8px var(--accent); transform:scale(1.12)}
+  }
+  nav a{
+    color:var(--muted); text-decoration:none; margin-left:24px; font-size:.92rem;
+    transition:color .2s ease; position:relative;
+  }
+  nav a::after{
+    content:""; position:absolute; left:0; bottom:-4px; width:0; height:1px;
+    background:var(--accent); transition:width .25s ease;
+  }
   nav a:hover{color:var(--text)}
+  nav a:hover::after{width:100%}
+
   .hero{
-    max-width:800px; margin:0 auto; padding:90px 6vw 60px; text-align:center;
+    max-width:820px; margin:0 auto; padding:110px 6vw 80px; text-align:center;
+    position:relative;
   }
-  .hero h1{font-size:2.6rem; line-height:1.2; margin:0 0 18px}
-  .hero h1 span{color:var(--accent)}
-  .hero p{color:var(--muted); font-size:1.1rem; line-height:1.6; max-width:620px; margin:0 auto 34px}
+  .hero .badge{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:6px 14px; border-radius:999px; font-size:.78rem; font-weight:600;
+    color:var(--accent2); background:rgba(91,157,255,.08);
+    border:1px solid rgba(91,157,255,.22); margin-bottom:26px;
+    letter-spacing:.3px; text-transform:uppercase;
+  }
+  .hero .badge::before{
+    content:""; width:6px; height:6px; border-radius:50%;
+    background:var(--accent); box-shadow:0 0 8px var(--accent);
+  }
+  .hero h1{
+    font-size:clamp(2rem, 5vw, 3rem); line-height:1.15; margin:0 0 20px;
+    font-weight:800; letter-spacing:-.5px;
+  }
+  .hero h1 span{
+    background:var(--gradient);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; color:transparent;
+  }
+  .hero p{
+    color:var(--muted); font-size:1.08rem; line-height:1.65;
+    max-width:600px; margin:0 auto 40px;
+  }
   .btn{
-    display:inline-flex; align-items:center; gap:10px; background:var(--accent); color:#0D0D0F;
-    font-weight:700; padding:14px 28px; border-radius:10px; text-decoration:none; font-size:1.05rem;
-    transition:background .15s ease, transform .15s ease;
+    display:inline-flex; align-items:center; gap:10px;
+    background:var(--gradient); color:#0A0A0C;
+    font-weight:700; padding:15px 32px; border-radius:12px;
+    text-decoration:none; font-size:1.02rem; letter-spacing:.2px;
+    transition:transform .2s ease, box-shadow .25s ease, filter .2s ease;
+    box-shadow:0 8px 30px -8px var(--accent-glow), 0 0 0 1px rgba(255,255,255,.06) inset;
+    position:relative; overflow:hidden;
   }
-  .btn:hover{background:var(--accent2); transform:translateY(-1px)}
-  .btn.secondary{background:transparent; color:var(--text); border:1px solid var(--border)}
-  .btn.secondary:hover{border-color:var(--accent); color:var(--accent2); background:transparent}
-  .note{margin-top:14px; font-size:.85rem; color:var(--muted)}
-  section{max-width:1000px; margin:0 auto; padding:40px 6vw}
+  .btn::before{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(120deg, transparent 30%, rgba(255,255,255,.35) 50%, transparent 70%);
+    transform:translateX(-120%); transition:transform .6s ease;
+  }
+  .btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 14px 40px -10px var(--accent-glow), 0 0 0 1px rgba(255,255,255,.1) inset;
+    filter:brightness(1.05);
+  }
+  .btn:hover::before{transform:translateX(120%)}
+  .btn:active{transform:translateY(0)}
+  .note{margin-top:18px; font-size:.82rem; color:var(--muted); letter-spacing:.2px}
+  .note strong{color:var(--text); font-weight:600}
+
+  section{max-width:1050px; margin:0 auto; padding:20px 6vw 80px}
   .features{display:grid; grid-template-columns:repeat(3,1fr); gap:18px; margin-top:10px}
-  .card{background:var(--card); border:1px solid var(--border); border-radius:12px; padding:22px}
-  .card h3{margin:0 0 8px; font-size:1.05rem}
-  .card p{margin:0; color:var(--muted); font-size:.92rem; line-height:1.5}
-  .docs{display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-top:16px}
-  .doc-link{
-    display:flex; flex-direction:column; gap:4px; background:var(--card); border:1px solid var(--border);
-    border-radius:10px; padding:16px; text-decoration:none; color:var(--text);
+  .card{
+    background:linear-gradient(180deg, var(--card) 0%, var(--bg2) 100%);
+    border:1px solid var(--border); border-radius:16px; padding:26px 22px;
+    transition:border-color .25s ease, transform .25s ease, background .25s ease, box-shadow .25s ease;
+    position:relative; overflow:hidden;
   }
-  .doc-link:hover{border-color:var(--accent)}
-  .doc-link strong{font-size:.95rem}
-  .doc-link span{color:var(--muted); font-size:.82rem}
-  h2{font-size:1.4rem; margin-bottom:4px}
-  .sub{color:var(--muted); margin-top:0; margin-bottom:0}
-  footer{border-top:1px solid var(--border); margin-top:40px; padding:26px 6vw; text-align:center; color:var(--muted); font-size:.85rem}
-  footer a{color:var(--muted)}
+  .card::before{
+    content:""; position:absolute; top:0; left:0; right:0; height:1px;
+    background:linear-gradient(90deg, transparent, rgba(91,157,255,.5), transparent);
+    opacity:0; transition:opacity .3s ease;
+  }
+  .card:hover{
+    border-color:var(--border-hover);
+    background:linear-gradient(180deg, var(--card-hover) 0%, var(--bg2) 100%);
+    transform:translateY(-3px);
+    box-shadow:0 16px 40px -20px rgba(91,157,255,.3);
+  }
+  .card:hover::before{opacity:1}
+  .card .icon{
+    width:38px; height:38px; border-radius:10px; display:flex;
+    align-items:center; justify-content:center; margin-bottom:16px;
+    background:rgba(91,157,255,.1); border:1px solid rgba(91,157,255,.2);
+    color:var(--accent2); font-size:1.1rem;
+  }
+  .card h3{margin:0 0 8px; font-size:1.02rem; font-weight:650; letter-spacing:.1px}
+  .card p{margin:0; color:var(--muted); font-size:.9rem; line-height:1.55}
+
+  footer{
+    border-top:1px solid var(--border); margin-top:20px; padding:28px 6vw;
+    text-align:center; color:var(--muted); font-size:.84rem; line-height:1.7;
+  }
+  footer a{
+    color:var(--accent2); text-decoration:none;
+    border-bottom:1px solid transparent; transition:border-color .2s ease;
+  }
+  footer a:hover{border-bottom-color:var(--accent2)}
+
   @media (max-width:720px){
     .features{grid-template-columns:1fr}
-    .docs{grid-template-columns:1fr 1fr}
-    .hero h1{font-size:2rem}
+    .hero{padding:70px 6vw 50px}
+    .hero p{font-size:1rem}
+    .btn{padding:14px 26px; font-size:.98rem; width:100%; justify-content:center}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation:none !important; transition:none !important}
   }
 </style>
 </head>
@@ -71,53 +165,34 @@
   <div class="brand"><span class="dot"></span> Frost Client Launcher</div>
   <nav>
     <a href="#download">Download</a>
-    <a href="#about">About</a>
-    <a href="#docs">Docs</a>
   </nav>
 </header>
 
 <div class="hero">
-  <h1>All versions of <span>Frost Client</span> have been imported into our launcher.</h1>
+  <div class="badge">All versions included</div>
+  <h1>Every <span>Frost Client</span> version, inside one launcher.</h1>
   <p>No more hunting for separate downloads. Every Frost Client release now lives inside one single app — download the Frost Client Launcher and get instant access to every version, past and future.</p>
   <a class="btn" id="download" href="https://github.com/joafine-sudo/frostapp/releases/tag/minecraft" target="_blank" rel="noopener">⬇ Download Frost Client Launcher</a>
-  <div class="note">Hosted on GitHub Releases · Free &amp; open source</div>
+  <div class="note"><strong>Hosted on GitHub Releases</strong> · Free &amp; open source</div>
 </div>
 
-<section id="about">
-  <h2>Why use the Launcher</h2>
-  <p class="sub">Everything you need to run Frost Client, in one place.</p>
+<section>
   <div class="features">
     <div class="card">
+      <div class="icon">📦</div>
       <h3>All versions, one app</h3>
       <p>Every Frost Client build has been imported into the launcher, so you never need to track down an old release again.</p>
     </div>
     <div class="card">
+      <div class="icon">⚡</div>
       <h3>Always up to date</h3>
       <p>New Frost Client versions are pushed straight to the launcher, so you're always just one click from the latest build.</p>
     </div>
     <div class="card">
+      <div class="icon">🪶</div>
       <h3>Simple &amp; lightweight</h3>
       <p>One small launcher replaces a folder full of separate downloads. Install it once and manage everything from there.</p>
     </div>
-  </div>
-</section>
-
-<section id="docs">
-  <h2>Project documentation</h2>
-  <p class="sub">Read more about the project directly on GitHub.</p>
-  <div class="docs">
-    <a class="doc-link" href="https://github.com/joafine-sudo/frostapp/blob/main/README.md" target="_blank" rel="noopener">
-      <strong>README</strong><span>Project overview</span>
-    </a>
-    <a class="doc-link" href="https://github.com/joafine-sudo/frostapp/blob/main/terms.md" target="_blank" rel="noopener">
-      <strong>Terms</strong><span>Terms of use</span>
-    </a>
-    <a class="doc-link" href="https://github.com/joafine-sudo/frostapp/blob/main/SECURITY.md" target="_blank" rel="noopener">
-      <strong>Security</strong><span>Security policy</span>
-    </a>
-    <a class="doc-link" href="https://github.com/joafine-sudo/frostapp/blob/main/LICENSE.md" target="_blank" rel="noopener">
-      <strong>License</strong><span>Usage license</span>
-    </a>
   </div>
 </section>
 
