@@ -10,8 +10,9 @@
   --bg:#05050a; --panel:#0c0c15; --card:#0e0e17;
   --border:#1a1a28; --border-hi:#252538;
   --text:#f0f0f7; --dim:#8888a0; --muted:#4e4e64;
-  --primary:#00d9f5; --violet:#7c4dff; --success:#22e07a;
+  --primary:#00d9f5; --violet:#7c4dff; --success:#22e07a; --gold:#ffc93c; --discord:#5865F2; --youtube:#ff3b3b;
   --grad:linear-gradient(135deg,#00d9f5 0%,#7c4dff 100%);
+  --grad-gold:linear-gradient(135deg,#ffc93c 0%,#ff9500 100%);
   --grad-soft:linear-gradient(160deg,#12121c 0%,#0b0b12 100%);
   --font:'Inter',system-ui,sans-serif;
   --font-head:'Space Grotesk','Inter',sans-serif;
@@ -25,15 +26,19 @@ body{
   padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
   overflow-x:hidden; position:relative; line-height:1.6;
 }
+svg.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-2px}
+svg.ic.fill{fill:currentColor;stroke:none}
+
 @keyframes floatSlow{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-18px)}}
 .ambient{position:fixed;pointer-events:none;z-index:0;filter:blur(170px);opacity:.09;border-radius:50%;animation:floatSlow 20s ease-in-out infinite}
 .ambient.a{width:700px;height:700px;background:var(--primary);top:-300px;right:-280px}
 .ambient.b{width:700px;height:700px;background:var(--violet);bottom:-300px;left:-280px;animation-duration:24s;animation-direction:reverse}
+.ambient.c{width:500px;height:500px;background:var(--gold);top:40%;left:50%;opacity:.03;animation-duration:28s}
 
 @keyframes snowFall{0%{transform:translateY(-10vh) translateX(0) rotate(0);opacity:0}10%{opacity:.8}90%{opacity:.8}100%{transform:translateY(110vh) translateX(-20px) rotate(360deg);opacity:0}}
 .flakes{position:fixed;inset:0;pointer-events:none;z-index:1;overflow:hidden}
-.flakes span{position:absolute;top:-10vh;color:#b8f0ff;text-shadow:0 0 8px rgba(0,217,245,.4);animation:snowFall linear infinite}
-.flakes span:nth-child(1){left:8%;font-size:12px;animation-duration:13s;animation-delay:0s}
+.flakes span{position:absolute;top:-10vh;color:#b8f0ff;text-shadow:0 0 8px rgba(0,217,245,.4);animation:snowFall linear infinite;font-size:14px}
+.flakes span:nth-child(1){left:8%;animation-duration:13s;animation-delay:0s}
 .flakes span:nth-child(2){left:22%;font-size:16px;animation-duration:17s;animation-delay:2s;color:#fff}
 .flakes span:nth-child(3){left:40%;font-size:10px;animation-duration:11s;animation-delay:4s;color:#d6e6ff}
 .flakes span:nth-child(4){left:58%;font-size:15px;animation-duration:19s;animation-delay:1s}
@@ -44,13 +49,24 @@ header{
   display:flex; align-items:center; justify-content:space-between;
   padding:20px 6vw; border-bottom:1px solid var(--border);
   position:sticky; top:0; background:rgba(5,5,10,.75); backdrop-filter:blur(14px);
-  z-index:10; position:relative;
+  z-index:10;
 }
 .brand{display:flex; align-items:center; gap:11px; font-family:var(--font-head); font-weight:700; font-size:1.05rem}
-.brand .mark{width:36px;height:36px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-size:16px;box-shadow:0 0 22px rgba(0,217,245,.3)}
+.brand .mark{width:38px;height:38px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-size:18px;color:#05050a;box-shadow:0 0 22px rgba(0,217,245,.3)}
+header nav{display:flex;gap:10px}
+header nav a{
+  width:38px;height:38px;border-radius:10px;display:grid;place-items:center;
+  background:var(--panel);border:1px solid var(--border);color:var(--dim);font-size:16px;
+  text-decoration:none;transition:.25s;
+}
+header nav a:hover{color:#fff;border-color:transparent;transform:translateY(-2px)}
+header nav a.discord:hover{background:var(--discord)}
+header nav a.youtube:hover{background:var(--youtube)}
+header nav a.github:hover{background:#2c2c38}
+
 .main{position:relative;z-index:2}
 
-.hero{max-width:780px; margin:0 auto; padding:100px 6vw 70px; text-align:center}
+.hero{max-width:780px; margin:0 auto; padding:90px 6vw 60px; text-align:center}
 .badge{
   display:inline-flex; align-items:center; gap:8px; padding:6px 14px; border-radius:50px;
   font-family:var(--font-mono); font-size:.72rem; color:var(--primary);
@@ -62,18 +78,31 @@ header{
   font-weight:700; letter-spacing:-1.5px;
 }
 .hero h1 span{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent}
-.hero p{color:var(--dim); font-size:1.08rem; max-width:580px; margin:0 auto 38px}
+.hero p{color:var(--dim); font-size:1.08rem; max-width:580px; margin:0 auto 34px}
+.actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
 .btn{
-  display:inline-flex; align-items:center; gap:10px; background:var(--grad); color:#05050a;
-  font-family:var(--font-head); font-weight:700; padding:15px 32px; border-radius:12px;
-  text-decoration:none; font-size:1rem; box-shadow:0 10px 36px rgba(0,217,245,.25);
+  display:inline-flex; align-items:center; gap:9px; font-family:var(--font-head); font-weight:700;
+  padding:15px 30px; border-radius:12px; text-decoration:none; font-size:1rem; border:1px solid transparent;
   transition:transform .25s ease, box-shadow .25s ease;
 }
-.btn:hover{transform:translateY(-3px); box-shadow:0 16px 48px rgba(0,217,245,.4)}
-.note{margin-top:18px; font-family:var(--font-mono); font-size:.76rem; color:var(--muted)}
+.btn-primary{background:var(--grad);color:#05050a;box-shadow:0 10px 36px rgba(0,217,245,.25)}
+.btn-primary:hover{transform:translateY(-3px); box-shadow:0 16px 48px rgba(0,217,245,.4)}
+.btn-discord{background:var(--discord);color:#fff;box-shadow:0 10px 30px rgba(88,101,242,.22)}
+.btn-discord:hover{transform:translateY(-3px);box-shadow:0 14px 42px rgba(88,101,242,.35)}
+.note{margin-top:4px; font-family:var(--font-mono); font-size:.76rem; color:var(--muted)}
 .note strong{color:var(--dim); font-weight:500}
 
-section{max-width:1040px; margin:0 auto; padding:10px 6vw 90px}
+.stats{max-width:900px;margin:0 auto;padding:0 6vw 70px;display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.stat{background:var(--grad-soft);border:1px solid var(--border);border-radius:14px;padding:20px 16px;text-align:center}
+.stat .v{font-family:var(--font-head);font-size:1.6rem;font-weight:700;color:var(--primary);letter-spacing:-.5px}
+.stat .l{font-family:var(--font-mono);font-size:.68rem;color:var(--dim);margin-top:4px;letter-spacing:.3px}
+
+section{max-width:1040px; margin:0 auto; padding:10px 6vw 70px}
+.section-head{text-align:center;margin-bottom:30px}
+.section-head .kicker{font-family:var(--font-mono);font-size:.7rem;color:var(--primary);letter-spacing:2px;text-transform:uppercase}
+.section-head h2{font-family:var(--font-head);font-size:1.8rem;font-weight:700;letter-spacing:-.8px;margin:10px 0 6px}
+.section-head p{color:var(--dim);font-size:.95rem;max-width:480px;margin:0 auto}
+
 .features{display:grid; grid-template-columns:repeat(3,1fr); gap:18px}
 .card{
   background:var(--grad-soft); border:1px solid var(--border); border-radius:16px; padding:28px 24px;
@@ -82,21 +111,56 @@ section{max-width:1040px; margin:0 auto; padding:10px 6vw 90px}
 .card::before{content:'';position:absolute;inset:0 0 auto 0;height:2px;background:var(--grad);opacity:0;transition:opacity .3s}
 .card:hover{border-color:var(--border-hi);transform:translateY(-4px);box-shadow:0 16px 40px rgba(0,217,245,.12)}
 .card:hover::before{opacity:1}
-.card .ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;background:var(--panel);border:1px solid var(--border-hi);color:var(--primary);font-size:1.1rem}
+.card .ico{width:42px;height:42px;border-radius:11px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;background:var(--panel);border:1px solid var(--border-hi);color:var(--primary);font-size:1.15rem}
 .card h3{margin:0 0 8px; font-family:var(--font-head); font-size:1.02rem; font-weight:600}
 .card p{margin:0; color:var(--dim); font-size:.9rem}
 
-footer{
-  border-top:1px solid var(--border); padding:30px 6vw; text-align:center;
-  color:var(--muted); font-family:var(--font-mono); font-size:.8rem; line-height:1.7; position:relative; z-index:2;
+.community{
+  background:radial-gradient(circle at 20% 0%,rgba(88,101,242,.12),transparent 55%),radial-gradient(circle at 100% 100%,rgba(0,217,245,.08),transparent 55%),var(--grad-soft);
+  border:1px solid var(--border-hi); border-radius:20px; padding:40px 36px; position:relative; overflow:hidden;
 }
+.community::before{content:'';position:absolute;inset:0 0 auto 0;height:3px;background:linear-gradient(90deg,#5865F2,#00d9f5)}
+.community-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:28px}
+.link-card{
+  background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;
+  display:flex;flex-direction:column;gap:10px;text-decoration:none;color:inherit;
+  transition:transform .25s ease, border-color .25s ease;
+}
+.link-card:hover{transform:translateY(-4px)}
+.link-card .ico{width:40px;height:40px;border-radius:10px;display:grid;place-items:center;font-size:1.2rem;color:#fff}
+.link-card.discord .ico{background:var(--discord)}
+.link-card.discord:hover{border-color:var(--discord)}
+.link-card.youtube .ico{background:var(--youtube)}
+.link-card.youtube:hover{border-color:var(--youtube)}
+.link-card.donate .ico{background:var(--grad-gold);color:#05050a}
+.link-card.donate:hover{border-color:var(--gold)}
+.link-card h4{font-family:var(--font-head);font-size:1rem;margin:0}
+.link-card p{color:var(--dim);font-size:.82rem;margin:0}
+
+footer{
+  border-top:1px solid var(--border); padding:30px 6vw; position:relative; z-index:2;
+  display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;
+}
+.foot-text{color:var(--muted); font-family:var(--font-mono); font-size:.78rem; line-height:1.7}
 footer a{color:var(--primary); text-decoration:none}
 footer a:hover{text-decoration:underline}
+.foot-socials{display:flex;gap:8px}
+.foot-socials a{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;background:var(--panel);border:1px solid var(--border);color:var(--dim);transition:.25s}
+.foot-socials a:hover{color:#fff;border-color:transparent;transform:translateY(-2px)}
+.foot-socials a.discord:hover{background:var(--discord)}
+.foot-socials a.youtube:hover{background:var(--youtube)}
+.foot-socials a.github:hover{background:#2c2c38}
+.foot-socials a.donate:hover{background:var(--grad-gold);color:#05050a}
 
 @media (max-width:720px){
   .features{grid-template-columns:1fr}
-  .hero{padding:70px 6vw 50px}
-  .btn{padding:14px 26px; width:100%; justify-content:center}
+  .community-grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .hero{padding:60px 6vw 40px}
+  .btn{padding:14px 24px; width:100%; justify-content:center}
+  .actions{flex-direction:column}
+  header nav{display:none}
+  footer{flex-direction:column;text-align:center}
 }
 @media (prefers-reduced-motion: reduce){*{animation:none !important; transition:none !important}}
 </style>
@@ -105,46 +169,127 @@ footer a:hover{text-decoration:underline}
 
 <div class="ambient a"></div>
 <div class="ambient b"></div>
+<div class="ambient c"></div>
 <div class="flakes" aria-hidden="true">
   <span>❄</span><span>❅</span><span>❆</span><span>❄</span><span>❅</span><span>❆</span>
 </div>
 
 <div class="main">
 <header>
-  <div class="brand"><div class="mark">❄</div> Frost Client Launcher</div>
+  <div class="brand">
+    <div class="mark">
+      <svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M12 2v20M4.5 6.5l15 11M19.5 6.5l-15 11M2 12h20M6.5 4.5l11 15M17.5 4.5l-11 15"/></svg>
+    </div>
+    Frost Client Launcher
+  </div>
+  <nav>
+    <a class="discord" href="https://discord.gg/We6xFMA8uY" target="_blank" rel="noopener" title="Discord">
+      <svg class="ic fill" viewBox="0 0 24 24" width="17" height="17"><path d="M20.3 5.4C18.9 4.7 17.4 4.2 15.8 4c-.2.4-.5.8-.6 1.3-1.6-.2-3.3-.2-4.9 0-.2-.4-.4-.9-.6-1.3-1.6.3-3.1.7-4.5 1.4C2.3 9 1.6 12.5 1.9 16c1.7 1.3 3.3 2 4.9 2.5.4-.5.7-1.1 1-1.7-.6-.2-1.1-.5-1.6-.8.1-.1.3-.2.4-.3 3.1 1.4 6.4 1.4 9.5 0 .1.1.3.2.4.3-.5.3-1 .6-1.6.8.3.6.6 1.2 1 1.7 1.6-.5 3.2-1.2 4.9-2.5.4-4.2-.7-7.6-2.5-10.6ZM8.7 13.9c-.9 0-1.7-.9-1.7-1.9s.7-1.9 1.7-1.9 1.7.9 1.7 1.9-.8 1.9-1.7 1.9Zm6.6 0c-.9 0-1.7-.9-1.7-1.9s.7-1.9 1.7-1.9 1.7.9 1.7 1.9-.7 1.9-1.7 1.9Z"/></svg>
+    </a>
+    <a class="youtube" href="https://youtube.com/@frostclient-q4i" target="_blank" rel="noopener" title="YouTube">
+      <svg class="ic fill" viewBox="0 0 24 24" width="17" height="17"><path d="M22 12s0-3.2-.4-4.7a2.8 2.8 0 0 0-2-2C17.9 5 12 5 12 5s-5.9 0-7.6.3a2.8 2.8 0 0 0-2 2C2 8.8 2 12 2 12s0 3.2.4 4.7a2.8 2.8 0 0 0 2 2C6.1 19 12 19 12 19s5.9 0 7.6-.3a2.8 2.8 0 0 0 2-2C22 15.2 22 12 22 12ZM10 15.5v-7l6 3.5Z"/></svg>
+    </a>
+    <a class="github" href="https://github.com/joafine-sudo/frostapp" target="_blank" rel="noopener" title="GitHub">
+      <svg class="ic fill" viewBox="0 0 24 24" width="17" height="17"><path d="M12 2C6.5 2 2 6.6 2 12.3c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.8c-2.8.6-3.4-1.4-3.4-1.4-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1.1 1.5 1.1.9 1.6 2.4 1.1 3 .9.1-.7.3-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.8-.1-.3-.5-1.4.1-2.9 0 0 .8-.3 2.8 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .6 1.5.2 2.6.1 2.9.6.7 1 1.7 1 2.8 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.8v2.6c0 .3.2.6.7.5A10.1 10.1 0 0 0 22 12.3C22 6.6 17.5 2 12 2Z"/></svg>
+    </a>
+  </nav>
 </header>
 
 <div class="hero">
   <div class="badge"><span class="dot"></span> ALL VERSIONS INCLUDED</div>
   <h1>Every <span>Frost Client</span> version, inside one launcher.</h1>
   <p>No more hunting for separate downloads. Every Frost Client release now lives inside one single app — download the launcher and get instant access to every version, past and future.</p>
-  <a class="btn" href="https://github.com/joafine-sudo/frostapp/releases/tag/minecraft" target="_blank" rel="noopener">⬇ Download Frost Client Launcher</a>
+  <div class="actions">
+    <a class="btn btn-primary" href="https://github.com/joafine-sudo/frostapp/releases/tag/minecraft" target="_blank" rel="noopener">
+      <svg class="ic" viewBox="0 0 24 24" width="16" height="16"><path d="M12 3v12m0 0 5-5m-5 5-5-5M4 21h16"/></svg>
+      Download Frost Client Launcher
+    </a>
+    <a class="btn btn-discord" href="https://discord.gg/We6xFMA8uY" target="_blank" rel="noopener">
+      <svg class="ic fill" viewBox="0 0 24 24" width="16" height="16"><path d="M20.3 5.4C18.9 4.7 17.4 4.2 15.8 4c-.2.4-.5.8-.6 1.3-1.6-.2-3.3-.2-4.9 0-.2-.4-.4-.9-.6-1.3-1.6.3-3.1.7-4.5 1.4C2.3 9 1.6 12.5 1.9 16c1.7 1.3 3.3 2 4.9 2.5.4-.5.7-1.1 1-1.7-.6-.2-1.1-.5-1.6-.8.1-.1.3-.2.4-.3 3.1 1.4 6.4 1.4 9.5 0 .1.1.3.2.4.3-.5.3-1 .6-1.6.8.3.6.6 1.2 1 1.7 1.6-.5 3.2-1.2 4.9-2.5.4-4.2-.7-7.6-2.5-10.6ZM8.7 13.9c-.9 0-1.7-.9-1.7-1.9s.7-1.9 1.7-1.9 1.7.9 1.7 1.9-.8 1.9-1.7 1.9Zm6.6 0c-.9 0-1.7-.9-1.7-1.9s.7-1.9 1.7-1.9 1.7.9 1.7 1.9-.7 1.9-1.7 1.9Z"/></svg>
+      Join Discord
+    </a>
+  </div>
   <div class="note"><strong>Hosted on GitHub Releases</strong> · Free &amp; open source</div>
 </div>
 
+<div class="stats">
+  <div class="stat"><div class="v">1000+</div><div class="l">FPS LOW-END</div></div>
+  <div class="stat"><div class="v">3000</div><div class="l">FPS HIGH-END</div></div>
+  <div class="stat"><div class="v">35+</div><div class="l">ESSENTIAL MODS</div></div>
+  <div class="stat"><div class="v">700+</div><div class="l">COMMUNITY</div></div>
+</div>
+
 <section>
+  <div class="section-head">
+    <span class="kicker">Why the launcher</span>
+    <h2>Built for simplicity</h2>
+    <p>One small app replaces a folder full of separate downloads.</p>
+  </div>
   <div class="features">
     <div class="card">
-      <div class="ico">📦</div>
+      <div class="ico"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M21 8 12 3 3 8m18 0-9 5m9-5v8l-9 5m0-13L3 8m9 5-9-5m9 5v8M3 8v8l9 5"/></svg></div>
       <h3>All versions, one app</h3>
       <p>Every Frost Client build has been imported into the launcher, so you never need to track down an old release again.</p>
     </div>
     <div class="card">
-      <div class="ico">⚡</div>
+      <div class="ico"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8Z"/></svg></div>
       <h3>Always up to date</h3>
       <p>New Frost Client versions are pushed straight to the launcher, so you're always just one click from the latest build.</p>
     </div>
     <div class="card">
-      <div class="ico">🪶</div>
+      <div class="ico"><svg class="ic" viewBox="0 0 24 24" width="18" height="18"><path d="M20.2 3.8c-3.5-.6-7.6.2-10.6 2.3C6.6 8.2 4.3 12 3.8 16.6c-.1 1 .3 1.9 1 2.6.7.7 1.6 1.1 2.6 1 4.6-.5 8.4-2.8 10.5-5.8 2.1-3 2.9-7.1 2.3-10.6ZM9 15 3.5 20.5M14.5 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/></svg></div>
       <h3>Simple &amp; lightweight</h3>
       <p>One small launcher replaces a folder full of separate downloads. Install it once and manage everything from there.</p>
     </div>
   </div>
 </section>
 
+<section>
+  <div class="community">
+    <div class="section-head">
+      <span class="kicker">Community</span>
+      <h2>Join 700+ members</h2>
+      <p>Get support, follow updates and help the project grow.</p>
+    </div>
+    <div class="community-grid">
+      <a class="link-card discord" href="https://discord.gg/We6xFMA8uY" target="_blank" rel="noopener">
+        <div class="ico"><svg class="ic fill" viewBox="0 0 24 24" width="18" height="18"><path d="M20.3 5.4C18.9 4.7 17.4 4.2 15.8 4c-.2.4-.5.8-.6 1.3-1.6-.2-3.3-.2-4.9 0-.2-.4-.4-.9-.6-1.3-1.6.3-3.1.7-4.5 1.4C2.3 9 1.6 12.5 1.9 16c1.7 1.3 3.3 2 4.9 2.5.4-.5.7-1.1 1-1.7-.6-.2-1.1-.5-1.6-.8.1-.1.3-.2.4-.3 3.1 1.4 6.4 1.4 9.5 0 .1.1.3.2.4.3-.5.3-1 .6-1.6.8.3.6.6 1.2 1 1.7 1.6-.5 3.2-1.2 4.9-2.5.4-4.2-.7-7.6-2.5-10.6ZM8.7 13.9c-.9 0-1.7-.9-1.7-1.9s.7-1.9 1.7-1.9 1.7.9 1.7 1.9-.8 1.9-1.7 1.9Zm6.6 0c-.9 0-1.7-.9-1.7-1.9s.7-1.9 1.7-1.9 1.7.9 1.7 1.9-.7 1.9-1.7 1.9Z"/></svg></div>
+        <h4>Discord</h4>
+        <p>Chat with the community &amp; get support</p>
+      </a>
+      <a class="link-card youtube" href="https://youtube.com/@frostclient-q4i" target="_blank" rel="noopener">
+        <div class="ico"><svg class="ic fill" viewBox="0 0 24 24" width="18" height="18"><path d="M22 12s0-3.2-.4-4.7a2.8 2.8 0 0 0-2-2C17.9 5 12 5 12 5s-5.9 0-7.6.3a2.8 2.8 0 0 0-2 2C2 8.8 2 12 2 12s0 3.2.4 4.7a2.8 2.8 0 0 0 2 2C6.1 19 12 19 12 19s5.9 0 7.6-.3a2.8 2.8 0 0 0 2-2C22 15.2 22 12 22 12ZM10 15.5v-7l6 3.5Z"/></svg></div>
+        <h4>YouTube</h4>
+        <p>Watch tutorials &amp; the latest updates</p>
+      </a>
+      <a class="link-card donate" href="https://www.paypal.com/donate/?hosted_button_id=PRUM8MUJVJ284" target="_blank" rel="noopener">
+        <div class="ico"><svg class="ic fill" viewBox="0 0 24 24" width="18" height="18"><path d="M12 21s-7.5-4.6-10-9.2C.5 8.2 2.2 5 5.4 5c1.9 0 3.3 1 4.6 2.6C11.3 6 12.7 5 14.6 5c3.2 0 4.9 3.2 3.4 6.8C19.5 16.4 12 21 12 21Z"/></svg></div>
+        <h4>Donate</h4>
+        <p>Help keep the project free &amp; growing</p>
+      </a>
+    </div>
+  </div>
+</section>
+
 <footer>
-  Frost Client Launcher is not affiliated with Mojang or Microsoft. All files are distributed via
-  <a href="https://github.com/joafine-sudo/frostapp" target="_blank" rel="noopener">GitHub</a>.
+  <div class="foot-text">
+    Frost Client Launcher is not affiliated with Mojang or Microsoft. All files are distributed via
+    <a href="https://github.com/joafine-sudo/frostapp" target="_blank" rel="noopener">GitHub</a>.
+  </div>
+  <div class="foot-socials">
+    <a class="discord" href="https://discord.gg/We6xFMA8uY" target="_blank" rel="noopener" title="Discord">
+      <svg class="ic fill" viewBox="0 0 24 24" width="15" height="15"><path d="M20.3 5.4C18.9 4.7 17.4 4.2 15.8 4c-.2.4-.5.8-.6 1.3-1.6-.2-3.3-.2-4.9 0-.2-.4-.4-.9-.6-1.3-1.6.3-3.1.7-4.5 1.4C2.3 9 1.6 12.5 1.9 16c1.7 1.3 3.3 2 4.9 2.5.4-.5.7-1.1 1-1.7-.6-.2-1.1-.5-1.6-.8.1-.1.3-.2.4-.3 3.1 1.4 6.4 1.4 9.5 0 .1.1.3.2.4.3-.5.3-1 .6-1.6.8.3.6.6 1.2 1 1.7 1.6-.5 3.2-1.2 4.9-2.5.4-4.2-.7-7.6-2.5-10.6ZM8.7 13.9c-.9 0-1.7-.9-1.7-1.9s.7-1.9 1.7-1.9 1.7.9 1.7 1.9-.8 1.9-1.7 1.9Zm6.6 0c-.9 0-1.7-.9-1.7-1.9s.7-1.9 1.7-1.9 1.7.9 1.7 1.9-.7 1.9-1.7 1.9Z"/></svg>
+    </a>
+    <a class="youtube" href="https://youtube.com/@frostclient-q4i" target="_blank" rel="noopener" title="YouTube">
+      <svg class="ic fill" viewBox="0 0 24 24" width="15" height="15"><path d="M22 12s0-3.2-.4-4.7a2.8 2.8 0 0 0-2-2C17.9 5 12 5 12 5s-5.9 0-7.6.3a2.8 2.8 0 0 0-2 2C2 8.8 2 12 2 12s0 3.2.4 4.7a2.8 2.8 0 0 0 2 2C6.1 19 12 19 12 19s5.9 0 7.6-.3a2.8 2.8 0 0 0 2-2C22 15.2 22 12 22 12ZM10 15.5v-7l6 3.5Z"/></svg>
+    </a>
+    <a class="github" href="https://github.com/joafine-sudo/frostapp" target="_blank" rel="noopener" title="GitHub">
+      <svg class="ic fill" viewBox="0 0 24 24" width="15" height="15"><path d="M12 2C6.5 2 2 6.6 2 12.3c0 4.5 2.9 8.3 6.8 9.7.5.1.7-.2.7-.5v-1.8c-2.8.6-3.4-1.4-3.4-1.4-.4-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.5 1.1 1.5 1.1.9 1.6 2.4 1.1 3 .9.1-.7.3-1.1.6-1.4-2.2-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.8-.1-.3-.5-1.4.1-2.9 0 0 .8-.3 2.8 1a9.4 9.4 0 0 1 5 0c1.9-1.3 2.8-1 2.8-1 .6 1.5.2 2.6.1 2.9.6.7 1 1.7 1 2.8 0 3.9-2.3 4.7-4.6 5 .4.3.7.9.7 1.8v2.6c0 .3.2.6.7.5A10.1 10.1 0 0 0 22 12.3C22 6.6 17.5 2 12 2Z"/></svg>
+    </a>
+    <a class="donate" href="https://www.paypal.com/donate/?hosted_button_id=PRUM8MUJVJ284" target="_blank" rel="noopener" title="Donate">
+      <svg class="ic fill" viewBox="0 0 24 24" width="15" height="15"><path d="M12 21s-7.5-4.6-10-9.2C.5 8.2 2.2 5 5.4 5c1.9 0 3.3 1 4.6 2.6C11.3 6 12.7 5 14.6 5c3.2 0 4.9 3.2 3.4 6.8C19.5 16.4 12 21 12 21Z"/></svg>
+    </a>
+  </div>
 </footer>
 </div>
 </body>
