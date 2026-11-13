@@ -674,10 +674,11 @@ public partial class MainWindow : Window
         try { Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true }); }
         catch { }
     }
-    private void Discord_Click(object s, RoutedEventArgs e) => OpenUrl("https://eu.frostclient.org/invite/discord");
+    private void Discord_Click(object s, RoutedEventArgs e) => OpenUrl("https://discord.gg/We6xFMA8uY");
     private void Website_Click(object s, RoutedEventArgs e) => OpenUrl("https://frostclient.org");
     private void Github_Click(object s, RoutedEventArgs e) => OpenUrl("https://github.com/joafine-sudo/frostapp");
     private void Youtube_Click(object s, RoutedEventArgs e) => OpenUrl("https://www.youtube.com/@FrostClient-q4i");
+    private void Paypal_Click(object s, RoutedEventArgs e) => OpenUrl("https://www.paypal.com/donate/?hosted_button_id=PRUM8MUJVJ284");
 
     // ──────────────────────────────────────────────────────────
     // VERSIONS (selection list only; no install/rename/delete from this UI)
