@@ -11,7 +11,7 @@ using Microsoft.Win32;
 
 namespace FrostClient;
 
-// Janelas de Versões, Renomear, Confirmar e partes das Definições.
+// Versions, rename, confirmation, and settings handlers.
 public partial class MainWindow
 {
     private string? _pendingConfirmVersionId;
@@ -23,7 +23,7 @@ public partial class MainWindow
     private void OpenVersions_Click(object s, RoutedEventArgs e)
     {
         VersionsOverlay.Visibility = Visibility.Visible;
-        // Se não houve rede no arranque, tenta outra vez ao abrir.
+        // If the network was unavailable at startup, try again when the panel opens.
         if (InstallVersionBox != null && InstallVersionBox.Items.Count == 0)
             _ = TryLoadRemoteVersionsAsync();
     }
@@ -118,7 +118,7 @@ public partial class MainWindow
         catch (Exception ex) { MessageBox.Show(ex.Message, Loc.T("title_delete_error")); }
     }
 
-    // ── Confirmar (serve para contas e versões) ────────────────
+    // ── Confirmation (used for accounts and versions) ────────────────
     private void ConfirmCancel_Click(object s, RoutedEventArgs e)
     {
         ConfirmOverlay.Visibility = Visibility.Collapsed;
@@ -137,7 +137,7 @@ public partial class MainWindow
         else if (accountId != null) await DeleteAccountConfirmedAsync(accountId);
     }
 
-    // ── Renomear versão ────────────────────────────────────────
+    // ── Rename version ────────────────────────────────────────
     private void RenameVersionFromList_Click(object s, RoutedEventArgs e)
     {
         if (s is not FrameworkElement { Tag: string realId }) return;
@@ -183,7 +183,7 @@ public partial class MainWindow
     }
 
     // ──────────────────────────────────────────────────────────
-    // DEFINIÇÕES (Java, JVM, resolução, Discord)
+    // SETTINGS (Java, JVM, resolution, Discord)
     // ──────────────────────────────────────────────────────────
     private void Settings_TextChanged(object s, TextChangedEventArgs e)       { if (IsLoaded) SaveSilently(); }
     private void Settings_ComboChanged(object s, SelectionChangedEventArgs e) { if (IsLoaded) SaveSilently(); }

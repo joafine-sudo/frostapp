@@ -12,7 +12,7 @@
         Loaded="Window_Loaded">
 
     <Window.Resources>
-        <!-- COLOURS -->
+        <!-- COLORS -->
         <SolidColorBrush x:Key="TextMuted"  Color="#9AA3B5"/>
         <SolidColorBrush x:Key="PanelBg"    Color="#1B1B1B"/>
         <SolidColorBrush x:Key="PanelEdge"  Color="#0A0A0A"/>
@@ -31,7 +31,7 @@
         <Geometry x:Key="IconGithub">M12,2 C6.48,2 2,6.58 2,12.23 C2,16.75 4.87,20.62 8.84,21.94 C9.34,22.04 9.52,21.73 9.52,21.46 C9.52,21.22 9.51,20.58 9.5,19.73 C6.73,20.35 6.14,18.36 6.14,18.36 C5.69,17.18 5.03,16.87 5.03,16.87 C4.13,16.24 5.1,16.25 5.1,16.25 C6.1,16.32 6.62,17.3 6.62,17.3 C7.5,18.84 8.92,18.39 9.54,18.13 C9.63,17.47 9.88,17.02 10.16,16.77 C7.95,16.51 5.63,15.63 5.63,11.58 C5.63,10.42 6.04,9.47 6.71,8.73 C6.6,8.47 6.24,7.4 6.8,5.94 C6.8,5.94 7.67,5.65 9.5,6.93 C10.33,6.69 11.22,6.57 12.1,6.57 C12.98,6.57 13.87,6.69 14.7,6.93 C16.53,5.65 17.4,5.94 17.4,5.94 C17.96,7.4 17.6,8.47 17.49,8.73 C18.16,9.47 18.57,10.42 18.57,11.58 C18.57,15.64 16.25,16.5 14.03,16.77 C14.38,17.08 14.69,17.69 14.69,18.63 C14.69,19.98 14.68,21.07 14.68,21.46 C14.68,21.73 14.86,22.05 15.37,21.94 C19.34,20.62 22,16.75 22,12.23 C22,6.58 17.52,2 12,2 Z</Geometry>
         <Geometry x:Key="IconYoutube">M21.58,7.19 C21.35,6.31 20.66,5.62 19.78,5.39 C18.18,4.96 12,4.96 12,4.96 C12,4.96 5.82,4.96 4.22,5.39 C3.34,5.62 2.65,6.31 2.42,7.19 C2,8.79 2,12.14 2,12.14 C2,12.14 2,15.49 2.42,17.09 C2.65,17.97 3.34,18.66 4.22,18.89 C5.82,19.32 12,19.32 12,19.32 C12,19.32 18.18,19.32 19.78,18.89 C20.66,18.66 21.35,17.97 21.58,17.09 C22,15.49 22,12.14 22,12.14 C22,12.14 22,8.79 21.58,7.19 Z M10,15.19 V9.09 L15.2,12.14 L10,15.19 Z</Geometry>
 
-        <!-- TOOLTIP (necessário com AllowsTransparency, senão fica uma caixa branca vazia) -->
+        <!-- TOOLTIP (required with AllowsTransparency to avoid an empty white box) -->
         <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#0A0A0A"/>
             <Setter Property="Foreground" Value="White"/>
@@ -55,7 +55,7 @@
             </Setter>
         </Style>
 
-        <!-- SCROLLBAR fina -->
+        <!-- THIN SCROLLBAR -->
         <Style TargetType="ScrollBar">
             <Setter Property="Width" Value="6"/>
             <Setter Property="Background" Value="Transparent"/>
@@ -78,7 +78,7 @@
             </Setter>
         </Style>
 
-        <!-- TEXTO -->
+        <!-- TEXT -->
         <Style x:Key="Label" TargetType="TextBlock">
             <Setter Property="FontSize" Value="10"/>
             <Setter Property="FontWeight" Value="Bold"/>
@@ -97,7 +97,7 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
 
-        <!-- PAINEL ESCURO (bordas grossas estilo pixel) -->
+        <!-- DARK PANEL (thick pixel-style borders) -->
         <Style x:Key="Panel" TargetType="Border">
             <Setter Property="Background" Value="{StaticResource PanelBg}"/>
             <Setter Property="BorderBrush" Value="{StaticResource PanelEdge}"/>
@@ -697,11 +697,11 @@
                                 <ComboBox x:Name="LanguageBox" Style="{StaticResource CB}" Margin="0,0,0,20"
                                           SelectionChanged="Language_Changed">
                                     <ComboBoxItem Content="English" Tag="en-GB"/>
-                                    <ComboBoxItem Content="Português" Tag="pt-PT"/>
-                                    <ComboBoxItem Content="Español" Tag="es-ES"/>
-                                    <ComboBoxItem Content="Français" Tag="fr-FR"/>
-                                    <ComboBoxItem Content="Русский" Tag="ru-RU"/>
-                                    <ComboBoxItem Content="ไทย" Tag="th-TH"/>
+<ComboBoxItem Content="Português" Tag="pt-PT"/>
+<ComboBoxItem Content="Español" Tag="es-ES"/>
+<ComboBoxItem Content="Français" Tag="fr-FR"/>
+<ComboBoxItem Content="Русский" Tag="ru-RU"/>
+<ComboBoxItem Content="ไทย" Tag="th-TH"/>
                                 </ComboBox>
 
                                 <TextBlock Text="{Binding [bg], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>

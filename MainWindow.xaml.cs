@@ -96,7 +96,7 @@ public partial class MainWindow : Window
     private List<AccountEntry> _accounts = new();
     private string? _pendingConfirmAccountId;
 
-    // Evita que o download de um avatar antigo substitua o da conta atual.
+    // Prevents an old avatar request from replacing the current account avatar.
     private int _profileRequestId;
 
     // ── Discord ────────────────────────────────────────────
@@ -172,7 +172,7 @@ public partial class MainWindow : Window
         await RestoreActiveAccountAsync();
         UpdateProfileUI();
 
-        // Sem conta ainda (primeira vez): abre logo o painel de contas.
+        // No account yet (first launch): open the account panel immediately.
         if (_accounts.Count == 0) AccountOverlay.Visibility = Visibility.Visible;
 
         await EnsureFrostResourcesAsync();
@@ -313,7 +313,7 @@ public partial class MainWindow : Window
         public int    ResolutionIndex { get; set; } = 0;
         public int    OnLaunchIndex   { get; set; } = 0;
         public bool   DiscordPresence { get; set; } = true;
-        // "green" = fundo verde predefinido; senão, nome de um ficheiro de imagem (default.png, ...)
+        // "green" = legacy green background; otherwise, the image file name (default.png, ...)
         public string Wallpaper       { get; set; } = "green";
         public string Language        { get; set; } = "";
         public Dictionary<string, string> VersionNames { get; set; } = new();
@@ -321,7 +321,7 @@ public partial class MainWindow : Window
         public List<AccountEntry> Accounts        { get; set; } = new();
         public string             ActiveAccountId { get; set; } = "";
 
-        // Campos antigos, só para migrar settings.json antigos.
+        // Legacy fields kept only to migrate older settings.json files.
         public string Username            { get; set; } = "";
         public bool   IsMicrosoftLoggedIn { get; set; } = false;
     }
@@ -344,7 +344,7 @@ public partial class MainWindow : Window
             OnLaunchBox.SelectedIndex = Math.Clamp(_cfg.OnLaunchIndex, 0, OnLaunchBox.Items.Count - 1);
             DiscordToggle.IsChecked = _cfg.DiscordPresence;
 
-            // "green" era a opção antiga; mantém compatibilidade sem a mostrar na UI.
+            // "green" was the old option; keep compatibility without showing it in the UI.
             if (string.Equals(_cfg.Wallpaper, "green", StringComparison.OrdinalIgnoreCase))
                 _cfg.Wallpaper = "default.png";
 
@@ -357,7 +357,7 @@ public partial class MainWindow : Window
             foreach (var account in _accounts)
                 if (account.Type != "microsoft") account.Type = "offline";
 
-            // Migração do formato antigo (uma conta só).
+            // Migrate the old single-account format.
             if (_accounts.Count == 0 && !string.IsNullOrWhiteSpace(_cfg.Username))
             {
                 var migrated = new AccountEntry
@@ -407,8 +407,8 @@ public partial class MainWindow : Window
         if (IsLoaded) SaveSilently();
     }
 
-    // "green" mostra o fundo verde; qualquer outro valor é uma imagem (ao lado do .exe
-    // tem prioridade, senão a que está embutida no .exe).
+    // "green" shows the green background; any other value is an image (next to the .exe
+    // takes priority, otherwise use the image embedded in the .exe).
     private void ApplyWallpaper(string? fileName)
     {
         if (WallpaperRect == null || WallpaperShade == null || BackgroundImageBrush == null) return;
@@ -471,7 +471,7 @@ public partial class MainWindow : Window
                                    ?? items.FirstOrDefault();
     }
 
-    // Textos atribuídos por código (não por binding) são refeitos quando o idioma muda.
+    // Text assigned from code (rather than bindings) is refreshed when the language changes.
     private void RefreshLocalizedTexts()
     {
         if (!IsLoaded) return;
@@ -666,7 +666,7 @@ public partial class MainWindow : Window
     private void Youtube_Click(object s, RoutedEventArgs e) => OpenUrl("https://www.youtube.com/@FrostClient-q4i");
 
     // ──────────────────────────────────────────────────────────
-    // VERSIONS (só a lista para escolher; sem instalar/renomear/apagar pela UI)
+    // VERSIONS (selection list only; no install/rename/delete from this UI)
     // ──────────────────────────────────────────────────────────
     private string GetDisplayName(string realId)
         => _cfg.VersionNames.TryGetValue(realId, out var n) ? n : realId;
@@ -730,7 +730,7 @@ public partial class MainWindow : Window
     }
 
     // ──────────────────────────────────────────────────────────
-    // FROST RESOURCES (igual ao original)
+    // FROST RESOURCES
     // ──────────────────────────────────────────────────────────
     private const string ResourcesVersion = "4";
     private static readonly HttpClient DownloadHttp = new() { Timeout = TimeSpan.FromMinutes(20) };
@@ -1030,8 +1030,8 @@ public partial class MainWindow : Window
                 GameLauncherVersion = "1.0.11"
             };
 
-            // Java / JVM args / resolução continuam a ser lidos do settings.json
-            // (já não têm interface, mas quem os tinha configurado mantém-nos).
+            // Java / JVM arguments / resolution are still read from settings.json
+            // (there is no current UI for them, but existing settings are preserved).
             var javaPath = _cfg.JavaPath?.Trim();
             if (!string.IsNullOrWhiteSpace(javaPath) && File.Exists(javaPath))
                 options.JavaPath = javaPath;
@@ -1046,9 +1046,19 @@ public partial class MainWindow : Window
                 options.ScreenHeight = res.H;
             }
 
-            SetStatus(Loc.T("verifying"));  await Task.Delay(300);
-            SetStatus(Loc.T("checking_runtime"));
-            var process = await launcher.InstallAndBuildProcessAsync(realId, options);
+            // IMPORTANTE:
+            // Install files separately before creating the process.
+            // With CmlLib.Core 4.0.6, InstallAsync installs missing files
+            // and includes the appropriate Java Runtime when required.
+            // This allows the launcher to work on a machine without Java installed.
+            SetStatus(Loc.T("verifying"));
+            await Task.Delay(300);
+
+            SetStatus(Loc.T("installing_mc_java"));
+            await launcher.InstallAsync(realId);
+
+            SetStatus(Loc.T("preparing_java"));
+            var process = await launcher.BuildProcessAsync(realId, options);
 
             process.EnableRaisingEvents = true;
             _gameRunning = true;
