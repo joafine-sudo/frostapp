@@ -163,11 +163,25 @@ public partial class MainWindow : Window
         catch { /* swallow */ }
     }
 
+    private async Task CheckForLauncherUpdateAsync()
+    {
+        try
+        {
+            await FrostUpdater.CheckAndUpdateAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Updater: " + ex.Message);
+        }
+    }
+
     // ──────────────────────────────────────────────────────────
     // WINDOW LOAD / CLOSE
     // ──────────────────────────────────────────────────────────
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        _ = CheckForLauncherUpdateAsync();
+
         RenderAccounts();
         await RestoreActiveAccountAsync();
         UpdateProfileUI();
