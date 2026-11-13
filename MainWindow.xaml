@@ -476,6 +476,33 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Atalho compacto (só ícone, estilo minimalista) -->
+        <Style x:Key="SocialIcon" TargetType="Button">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="#99111111" BorderBrush="#0A0A0A"
+                                BorderThickness="2" CornerRadius="4">
+                            <Path x:Name="Ic" Data="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
+                                  Fill="White" Opacity="0.75" Width="16" Height="16" Stretch="Uniform"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="White"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#CC1E1E1E"/>
+                                <Setter TargetName="Ic" Property="Opacity" Value="1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <!-- ====================== ROOT ====================== -->
@@ -539,26 +566,10 @@
 
                     <!-- ESQUERDA: atalhos -->
                     <StackPanel Grid.RowSpan="2" HorizontalAlignment="Left" VerticalAlignment="Top">
-                        <Button Style="{StaticResource HomeTile}" Click="Website_Click" ToolTip="Website">
-                            <Button.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#4FB04A" Offset="0"/><GradientStop Color="#1E5E22" Offset="1"/></LinearGradientBrush></Button.Background>
-                            <StackPanel VerticalAlignment="Bottom"><Path Data="{StaticResource IconWeb}" Fill="White" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,0,0,6"/><TextBlock Text="Website" FontWeight="Bold" FontSize="12" Foreground="White"/></StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource HomeTile}" Click="Github_Click" ToolTip="GitHub" Margin="0,10,0,0">
-                            <Button.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#30343B" Offset="0"/><GradientStop Color="#111318" Offset="1"/></LinearGradientBrush></Button.Background>
-                            <StackPanel VerticalAlignment="Bottom"><Path Data="{StaticResource IconGithub}" Fill="White" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,0,0,6"/><TextBlock Text="GitHub" FontWeight="Bold" FontSize="12" Foreground="White"/></StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource HomeTile}" Click="Youtube_Click" ToolTip="YouTube" Margin="0,10,0,0">
-                            <Button.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#E53935" Offset="0"/><GradientStop Color="#8B1111" Offset="1"/></LinearGradientBrush></Button.Background>
-                            <StackPanel VerticalAlignment="Bottom"><Path Data="{StaticResource IconYoutube}" Fill="White" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,0,0,6"/><TextBlock Text="YouTube" FontWeight="Bold" FontSize="12" Foreground="White"/></StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource HomeTile}" Click="Discord_Click" ToolTip="Discord" Margin="0,10,0,0">
-                            <Button.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#5865F2" Offset="0"/><GradientStop Color="#303A9E" Offset="1"/></LinearGradientBrush></Button.Background>
-                            <StackPanel VerticalAlignment="Bottom"><Path Data="{StaticResource IconDiscord}" Fill="White" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,0,0,6"/><TextBlock Text="Discord" FontWeight="Bold" FontSize="12" Foreground="White"/></StackPanel>
-                        </Button>
-                        <Button Style="{StaticResource HomeTile}" Click="Paypal_Click" ToolTip="PayPal" Margin="0,10,0,0">
-                            <Button.Background><LinearGradientBrush StartPoint="0,0" EndPoint="1,1"><GradientStop Color="#0070BA" Offset="0"/><GradientStop Color="#003087" Offset="1"/></LinearGradientBrush></Button.Background>
-                            <StackPanel VerticalAlignment="Bottom"><Path Data="{StaticResource IconPaypal}" Fill="White" Width="22" Height="22" Stretch="Uniform" HorizontalAlignment="Left" Margin="0,0,0,6"/><TextBlock Text="PayPal" FontWeight="Bold" FontSize="12" Foreground="White"/></StackPanel>
-                        </Button>
+                        <Button Style="{StaticResource SocialIcon}" Click="Website_Click" ToolTip="Website" Tag="{StaticResource IconWeb}"/>
+                        <Button Style="{StaticResource SocialIcon}" Click="Github_Click" ToolTip="GitHub" Tag="{StaticResource IconGithub}"/>
+                        <Button Style="{StaticResource SocialIcon}" Click="Youtube_Click" ToolTip="YouTube" Tag="{StaticResource IconYoutube}"/>
+                        <Button Style="{StaticResource SocialIcon}" Click="Paypal_Click" ToolTip="PayPal" Tag="{StaticResource IconPaypal}"/>
                     </StackPanel>
 
                     <!-- TOPO DIREITA: conta + definições -->
@@ -616,6 +627,8 @@
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock Text="{Binding [join_discord], Source={x:Static loc:Loc.Instance}}"
                                            FontSize="20" FontWeight="Black" Foreground="White" TextWrapping="Wrap"/>
+                                <TextBlock Text="+800 members now" FontSize="12" FontWeight="SemiBold"
+                                           Foreground="#CFD6F5" Margin="0,4,0,0"/>
                                 <Button Style="{StaticResource BtnDiscord}" HorizontalAlignment="Left"
                                         Margin="0,14,0,0" Click="Discord_Click"
                                         ToolTip="{Binding [join_discord_tip], Source={x:Static loc:Loc.Instance}}">
@@ -648,11 +661,10 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <Border Width="60" Height="60" Background="#17243A" BorderBrush="#0A0A0A"
-                                        BorderThickness="2" CornerRadius="4" VerticalAlignment="Center">
-                                    <TextBlock Text="▦" FontSize="34" Foreground="#E8E7A1"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                </Border>
+                                <Button Style="{StaticResource BtnSquare}" Width="60" Height="60"
+                                        Tag="{StaticResource IconVersions}" VerticalAlignment="Center"
+                                        Click="OpenVersions_Click"
+                                        ToolTip="{Binding [nav_versions], Source={x:Static loc:Loc.Instance}}"/>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="14,0,0,0">
                                     <TextBlock Text="READY TO PLAY" FontSize="9" FontWeight="Bold" Foreground="#BBD7F7"/>
                                     <ComboBox x:Name="VersionBox" Style="{StaticResource CB}"
@@ -662,18 +674,12 @@
                                     <TextBlock x:Name="HomeVersionLabel" Text="" FontSize="9"
                                                Foreground="#C6D8EE" Margin="2,4,0,0"/>
                                 </StackPanel>
-                                <Button Grid.Column="2" Style="{StaticResource BtnSquare}"
-                                        Tag="{StaticResource IconVersions}" Margin="12,0,0,0"
-                                        VerticalAlignment="Center" Click="OpenVersions_Click"
-                                        ToolTip="{Binding [nav_versions], Source={x:Static loc:Loc.Instance}}"/>
                             </Grid>
                         </Border>
 
                         <Button x:Name="PlayButton" Grid.Column="2" Style="{StaticResource BtnPlay}"
                                 Click="Play_Click">
                             <StackPanel Orientation="Horizontal">
-                                <Path Data="{StaticResource IconPlay}" Fill="#14400C" Width="24" Height="24"
-                                      Stretch="Uniform" Margin="0,0,12,0"/>
                                 <TextBlock x:Name="PlayText"
                                            Text="{Binding [play], Source={x:Static loc:Loc.Instance}}"
                                            FontSize="30" FontWeight="Black" Foreground="#14400C"/>
