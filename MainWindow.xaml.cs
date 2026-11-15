@@ -908,17 +908,19 @@ public partial class MainWindow : Window
         }
     }
 
-    // Extracts only the libraries folder from the bundled ZIP into .minecraft/libraries.
-    // Supports entries such as "libraries/..." and "some-folder/libraries/...".
-    private async Task<int> ExtractForgeLibrariesAsync(string versionId)
+    // Extracts the contents of the ZIP's libraries folder directly into .minecraft/libraries.
+    // Supports both "libraries/..." and "any-folder/libraries/..." ZIP layouts.
+    private async Task<int> ExtractLibrariesFromZipAsync()
     {
         string zipPath = Path.Combine(AppContext.BaseDirectory, "frost-resources.zip");
         if (!File.Exists(zipPath))
             throw new FileNotFoundException(
-                "The bundled frost-resources.zip file was not found next to the launcher.", zipPath);
+                "frost-resources.zip was not found next to the launcher executable.", zipPath);
 
         string librariesRoot = Path.GetFullPath(Path.Combine(_gameDir, "libraries"));
         Directory.CreateDirectory(librariesRoot);
+        string rootPrefix = librariesRoot.TrimEnd(Path.DirectorySeparatorChar)
+            + Path.DirectorySeparatorChar;
 
         int extractedFiles = 0;
         using (var archive = ZipFile.OpenRead(zipPath))
@@ -929,24 +931,27 @@ public partial class MainWindow : Window
                 string[] pathParts = archivePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
                 int librariesIndex = Array.FindIndex(pathParts, part =>
                     part.Equals("libraries", StringComparison.OrdinalIgnoreCase));
-                if (librariesIndex < 0 || librariesIndex >= pathParts.Length - 1) continue;
 
-                string relativePath = Path.Combine(pathParts.Skip(librariesIndex + 1).ToArray());
-                if (string.IsNullOrWhiteSpace(relativePath) || string.IsNullOrEmpty(entry.Name))
+                if (librariesIndex < 0 || librariesIndex >= pathParts.Length - 1)
                     continue;
 
-                string destination = Path.GetFullPath(Path.Combine(
-                    librariesRoot,
-                    relativePath.Replace('/', Path.DirectorySeparatorChar)));
+                string[] relativeParts = pathParts.Skip(librariesIndex + 1).ToArray();
+                if (relativeParts.Length == 0 || string.IsNullOrWhiteSpace(entry.Name))
+                    continue;
 
-                string rootPrefix = librariesRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                string relativePath = Path.Combine(relativeParts);
+                string destination = Path.GetFullPath(Path.Combine(librariesRoot, relativePath));
+
+                // Prevent ZIP entries from writing outside .minecraft\libraries.
                 if (!destination.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("The ZIP contains an unsafe library path: " + entry.FullName);
+                    throw new InvalidDataException(
+                        "The ZIP contains an unsafe library path: " + entry.FullName);
 
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
                 await using var input = entry.Open();
                 await using var output = new FileStream(
-                    destination, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+                    destination, FileMode.Create, FileAccess.Write, FileShare.None,
+                    81920, useAsync: true);
                 await input.CopyToAsync(output);
                 extractedFiles++;
             }
@@ -954,43 +959,7 @@ public partial class MainWindow : Window
 
         if (extractedFiles == 0)
             throw new InvalidDataException(
-                "No files were found under a 'libraries' folder inside frost-resources.zip.");
-
-        // If the selected version declares a Forge artifact path, verify that it was installed.
-        string versionJsonPath = Path.Combine(_gameDir, "versions", versionId, versionId + ".json");
-        using (var document = JsonDocument.Parse(await File.ReadAllTextAsync(versionJsonPath)))
-        {
-            if (document.RootElement.TryGetProperty("libraries", out var libraries) &&
-                libraries.ValueKind == JsonValueKind.Array)
-            {
-                foreach (var library in libraries.EnumerateArray())
-                {
-                    if (!library.TryGetProperty("name", out var nameNode)) continue;
-                    string coordinate = nameNode.GetString() ?? "";
-                    if (!coordinate.StartsWith("net.minecraftforge:forge:", StringComparison.OrdinalIgnoreCase))
-                        continue;
-
-                    string relativePath = MavenPathFromCoordinate(coordinate);
-                    if (library.TryGetProperty("downloads", out var downloads) &&
-                        downloads.TryGetProperty("artifact", out var artifact) &&
-                        artifact.TryGetProperty("path", out var pathNode) &&
-                        !string.IsNullOrWhiteSpace(pathNode.GetString()))
-                        relativePath = pathNode.GetString()!;
-
-                    string forgeLibrary = Path.GetFullPath(Path.Combine(
-                        librariesRoot,
-                        relativePath.Replace('/', Path.DirectorySeparatorChar)
-                                    .Replace('\\', Path.DirectorySeparatorChar)));
-                    string rootPrefix = librariesRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-                    if (!forgeLibrary.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
-                        throw new InvalidDataException("Invalid Forge library path in version JSON.");
-                    if (!File.Exists(forgeLibrary) || new FileInfo(forgeLibrary).Length == 0)
-                        throw new FileNotFoundException(
-                            "The Forge library required by the selected version is missing from the ZIP.",
-                            forgeLibrary);
-                }
-            }
-        }
+                "No files were found inside a 'libraries' folder in frost-resources.zip.");
 
         return extractedFiles;
     }
@@ -1257,6 +1226,12 @@ public partial class MainWindow : Window
             Directory.CreateDirectory(_gameDir);
             Directory.CreateDirectory(GameModsDir(realId));
 
+            // Extract the ZIP's libraries folder directly into .minecraft\libraries
+            // before the Minecraft launcher validates or starts the selected version.
+            SetStatus("Extracting libraries...");
+            int extracted = await ExtractLibrariesFromZipAsync();
+            _frostSetupInfo = $"Extracted {extracted} library files from frost-resources.zip";
+
             if (realId.Contains("frost client", StringComparison.OrdinalIgnoreCase))
             {
                 SetStatus(Loc.T("checking_resources"));
@@ -1270,12 +1245,6 @@ public partial class MainWindow : Window
                     UpdatePresence("In Launcher", "Frost Client", null);
                     return;
                 }
-            }
-            else if (IsForgeVersion(realId))
-            {
-                SetStatus("Installing Forge libraries...");
-                int extracted = await ExtractForgeLibrariesAsync(realId);
-                _frostSetupInfo = $"Extracted {extracted} Forge library files from frost-resources.zip";
             }
 
             var launcher = new MinecraftLauncher(new MinecraftPath(_gameDir));

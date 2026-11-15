@@ -14,7 +14,7 @@ internal static class FrostUpdater
     private const string ReleaseApi =
         "https://api.github.com/repos/joafine-sudo/frostapp/releases/tags/minecraft";
     private const string DirectDownloadUrl =
-        "https://github.com/joafine-sudo/frostapp/releases/download/minecraft/FrostClient.exe";
+        "https://github.com/joafine-sudo/frostapp/releases/download/minecraft/FrostClient-Setup.exe";
     private static readonly string UpdateStateFile = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "FrostClient", "update-state.json");
