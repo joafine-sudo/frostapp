@@ -244,6 +244,21 @@ public partial class MainWindow : Window
         // No account yet (first launch): open the account panel immediately.
         if (_accounts.Count == 0) AccountOverlay.Visibility = Visibility.Visible;
 
+        // Extract libraries from the local ZIP right away, BEFORE any readiness check.
+        // This guarantees Forge and friends exist on disk even offline, so
+        // EnsureFrostResourcesAsync never has a reason to reach for the network.
+        try
+        {
+            SetStatus("Extracting local libraries...");
+            int extracted = await ExtractLibrariesFromZipAsync();
+            _frostSetupInfo = $"Extracted {extracted} library files from frost-resources.zip (startup)";
+        }
+        catch (Exception ex)
+        {
+            _frostSetupInfo = "ERROR extracting libraries at startup: " + ex.Message;
+            Debug.WriteLine(_frostSetupInfo);
+        }
+
         await EnsureFrostResourcesAsync();
         await RefreshVersionsAsync();
         SetStatus(Loc.T("status_ready"));
@@ -513,7 +528,7 @@ public partial class MainWindow : Window
 
             if (NewAccountNameBox != null) NewAccountNameBox.Text = "";
         }
-        catch { /* usa os valores por defeito */ }
+        catch { /* use default values */ }
     }
 
     private void SaveSilently()
@@ -870,8 +885,19 @@ public partial class MainWindow : Window
     // ─────────────────────────────────────────────────────────
     // FROST RESOURCES
     // ─────────────────────────────────────────────────────────
+    //
+    // NOTE: This whole section was changed to be fully offline.
+    // Previously, DownloadAndInstallResourcesAsync() looped over every
+    // library listed in "frost client.json" and downloaded each one over
+    // HTTP (Forge included). On machines with a firewall/AV blocking that
+    // traffic, this failed, which is why "libraries" and "mods" never
+    // showed up correctly on other people's PCs.
+    //
+    // Now everything (version files + libraries) comes ONLY from the
+    // "frost-resources.zip" that ships next to the launcher executable
+    // (installed by Inno Setup). No network calls are made for this step.
+    //
     private const string ResourcesVersion = "4";
-    private static readonly HttpClient DownloadHttp = new() { Timeout = TimeSpan.FromMinutes(20) };
     private TaskCompletionSource<bool>? _resourcesChoice;
     private string _frostSetupInfo = "not run";
 
@@ -910,6 +936,7 @@ public partial class MainWindow : Window
 
     // Extracts the contents of the ZIP's libraries folder directly into .minecraft/libraries.
     // Supports both "libraries/..." and "any-folder/libraries/..." ZIP layouts.
+    // This is a fully local operation: no network traffic involved.
     private async Task<int> ExtractLibrariesFromZipAsync()
     {
         string zipPath = Path.Combine(AppContext.BaseDirectory, "frost-resources.zip");
@@ -964,6 +991,39 @@ public partial class MainWindow : Window
         return extractedFiles;
     }
 
+    // Extracts an optional "frost-mods.zip" (shipped by Inno Setup, same folder as the exe)
+    // into the active mods folder. Fully local/offline; silently does nothing if the
+    // ZIP is not present, so this step is safe to call unconditionally.
+    private async Task<int> ExtractModsFromZipAsync(string? versionId = null)
+    {
+        string zipPath = Path.Combine(AppContext.BaseDirectory, "frost-mods.zip");
+        if (!File.Exists(zipPath)) return 0;
+
+        string modsRoot = Path.GetFullPath(GameModsDir(versionId ?? "frost client"));
+        Directory.CreateDirectory(modsRoot);
+        string rootPrefix = modsRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        int extracted = 0;
+        using var archive = ZipFile.OpenRead(zipPath);
+        foreach (var entry in archive.Entries)
+        {
+            if (string.IsNullOrWhiteSpace(entry.Name)) continue;
+
+            string destination = Path.GetFullPath(Path.Combine(modsRoot, entry.FullName));
+            if (!destination.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("The ZIP contains an unsafe mod path: " + entry.FullName);
+
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            await using var input = entry.Open();
+            await using var output = new FileStream(
+                destination, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+            await input.CopyToAsync(output);
+            extracted++;
+        }
+
+        return extracted;
+    }
+
     private bool FrostResourcesReady()
     {
         try
@@ -1003,7 +1063,7 @@ public partial class MainWindow : Window
             try
             {
                 await DownloadAndInstallResourcesAsync();
-                _frostSetupInfo = "ok (version files and libraries downloaded)";
+                _frostSetupInfo = "ok (version files and libraries installed from local ZIP)";
                 return FrostResourcesReady();
             }
             catch (Exception ex)
@@ -1027,49 +1087,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private async Task DownloadFileAsync(string url, string destination, Action<long, long>? progress = null)
-    {
-        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-        var temp = destination + ".download";
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.UserAgent.ParseAdd("FrostClient/1.0");
-            using var response = await DownloadHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            response.EnsureSuccessStatusCode();
-
-            long total = response.Content.Headers.ContentLength ?? -1;
-            await using var input = await response.Content.ReadAsStreamAsync();
-            await using var output = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
-            var buffer = new byte[81920];
-            long received = 0;
-            int count;
-            while ((count = await input.ReadAsync(buffer.AsMemory(0, buffer.Length))) > 0)
-            {
-                await output.WriteAsync(buffer.AsMemory(0, count));
-                received += count;
-                progress?.Invoke(received, total);
-            }
-            await output.FlushAsync();
-            File.Move(temp, destination, true);
-        }
-        finally
-        {
-            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
-        }
-    }
-
-    private static string MavenPathFromCoordinate(string coordinate)
-    {
-        var parts = coordinate.Split(':');
-        if (parts.Length < 3) throw new InvalidDataException("Invalid library coordinate: " + coordinate);
-        var group = parts[0].Replace('.', '/');
-        var artifact = parts[1];
-        var version = parts[2];
-        var classifier = parts.Length >= 4 ? "-" + parts[3] : "";
-        return $"{group}/{artifact}/{version}/{artifact}-{version}{classifier}.jar";
-    }
-
     private static bool ExtractEmbedded(string resourceName, string destination)
     {
         using var s = typeof(MainWindow).Assembly.GetManifestResourceStream(resourceName);
@@ -1079,6 +1096,9 @@ public partial class MainWindow : Window
         return true;
     }
 
+    // Installs "frost client.json"/"frost client.jar" (bundled beside the exe, or embedded
+    // as a fallback) and extracts every library straight from the local
+    // "frost-resources.zip". No HTTP requests are made anywhere in this method.
     private async Task DownloadAndInstallResourcesAsync()
     {
         ResourcesOverlay.Visibility = Visibility.Visible;
@@ -1089,6 +1109,8 @@ public partial class MainWindow : Window
         var bundledJar = Path.Combine(bundledVersionDir, "frost client.jar");
 
         Directory.CreateDirectory(FrostVersionDir);
+        SetResourcesProgress(10, Loc.T("res_reading"));
+
         if (File.Exists(bundledJson) && File.Exists(bundledJar))
         {
             File.Copy(bundledJson, FrostVersionJson, overwrite: true);
@@ -1100,79 +1122,17 @@ public partial class MainWindow : Window
             throw new FileNotFoundException(
                 "Frost Client version files were not found (neither beside the launcher nor embedded in it).");
         }
-        SetResourcesProgress(20, Loc.T("res_reading"));
 
-        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(FrostVersionJson));
-        if (!document.RootElement.TryGetProperty("libraries", out var libraries) ||
-            libraries.ValueKind != JsonValueKind.Array)
-            throw new InvalidDataException("The Frost Client JSON has no valid 'libraries' list.");
-
-        var jobs = new List<(string Url, string Destination)>();
-        foreach (var library in libraries.EnumerateArray())
-        {
-            string? coordinate = library.TryGetProperty("name", out var nameNode) ? nameNode.GetString() : null;
-            if (string.IsNullOrWhiteSpace(coordinate)) continue;
-
-            string relativePath;
-            string? downloadUrl = null;
-            if (library.TryGetProperty("downloads", out var downloads) &&
-                downloads.TryGetProperty("artifact", out var artifact))
-            {
-                if (artifact.TryGetProperty("path", out var pathNode))
-                    relativePath = pathNode.GetString() ?? MavenPathFromCoordinate(coordinate);
-                else relativePath = MavenPathFromCoordinate(coordinate);
-                if (artifact.TryGetProperty("url", out var urlNode))
-                    downloadUrl = urlNode.GetString();
-            }
-            else
-            {
-                relativePath = MavenPathFromCoordinate(coordinate);
-                string repository = library.TryGetProperty("url", out var repoNode)
-                    ? (repoNode.GetString() ?? "https://libraries.minecraft.net/")
-                    : "https://libraries.minecraft.net/";
-                downloadUrl = new Uri(new Uri(repository.EndsWith('/') ? repository : repository + '/'),
-                    relativePath.Replace('\\', '/')).ToString();
-            }
-
-            relativePath = relativePath.Replace('/', Path.DirectorySeparatorChar)
-                                       .Replace('\\', Path.DirectorySeparatorChar);
-            var destination = Path.GetFullPath(Path.Combine(_gameDir, "libraries", relativePath));
-            var libraryRoot = Path.GetFullPath(Path.Combine(_gameDir, "libraries")) + Path.DirectorySeparatorChar;
-            if (!destination.StartsWith(libraryRoot, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("Invalid library path in version JSON.");
-
-            if (File.Exists(destination) && new FileInfo(destination).Length > 0) continue;
-            if (string.IsNullOrWhiteSpace(downloadUrl))
-            {
-                string repository = library.TryGetProperty("url", out var repoNode)
-                    ? (repoNode.GetString() ?? "https://libraries.minecraft.net/")
-                    : "https://libraries.minecraft.net/";
-                downloadUrl = new Uri(new Uri(repository.EndsWith('/') ? repository : repository + '/'),
-                    relativePath.Replace(Path.DirectorySeparatorChar, '/')).ToString();
-            }
-            jobs.Add((downloadUrl, destination));
-        }
-
-        int totalJobs = jobs.Count;
-        int completed = 0;
-        SetResourcesProgress(25, Loc.T("res_downloading_libs", totalJobs));
-        using var semaphore = new System.Threading.SemaphoreSlim(4);
-        var tasks = jobs.Select(async job =>
-        {
-            await semaphore.WaitAsync();
-            try
-            {
-                await DownloadFileAsync(job.Url, job.Destination);
-                int done = System.Threading.Interlocked.Increment(ref completed);
-                SetResourcesProgress(25 + (totalJobs == 0 ? 75 : done * 75d / totalJobs),
-                    Loc.T("res_libs_progress", done, totalJobs));
-            }
-            finally { semaphore.Release(); }
-        });
-        await Task.WhenAll(tasks);
+        // Extract every library from the local ZIP (covers Forge and all dependencies).
+        SetResourcesProgress(40, "Extracting libraries from local ZIP...");
+        int extracted = await ExtractLibrariesFromZipAsync();
+        _frostSetupInfo = $"Extracted {extracted} library files from frost-resources.zip";
 
         if (!File.Exists(ForgeJarPath))
-            throw new FileNotFoundException("Forge 1.8.9 library is missing after dependency download.", ForgeJarPath);
+            throw new FileNotFoundException(
+                "Forge 1.8.9 library is still missing after local extraction. " +
+                "Check that frost-resources.zip contains a 'libraries/net/minecraftforge/...' folder.",
+                ForgeJarPath);
 
         File.WriteAllText(ResourcesMarker, ResourcesVersion);
         SetResourcesProgress(100, Loc.T("res_done"));
@@ -1228,9 +1188,16 @@ public partial class MainWindow : Window
 
             // Extract the ZIP's libraries folder directly into .minecraft\libraries
             // before the Minecraft launcher validates or starts the selected version.
+            // Fully local: no network call is made here.
             SetStatus("Extracting libraries...");
             int extracted = await ExtractLibrariesFromZipAsync();
             _frostSetupInfo = $"Extracted {extracted} library files from frost-resources.zip";
+
+            // Extract bundled mods (if any "frost-mods.zip" is shipped) into the mods folder.
+            SetStatus("Extracting mods...");
+            int modsExtracted = await ExtractModsFromZipAsync(realId);
+            if (modsExtracted > 0)
+                _frostSetupInfo += $"; extracted {modsExtracted} mod files from frost-mods.zip";
 
             if (realId.Contains("frost client", StringComparison.OrdinalIgnoreCase))
             {
