@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Net.Http;
 using System.Linq;
 using System.Text.Json;
@@ -26,8 +27,8 @@ namespace FrostClient;
 // ─────────────────────────────────────────────────────────────
 public sealed class VersionEntry
 {
-    public string RealId { get; }              // pasta / id real da versão
-    public string DisplayName { get; set; }    // nome personalizado (ou igual ao RealId)
+    public string RealId { get; }              // Actual version folder / ID
+    public string DisplayName { get; set; }    // Custom display name (or the same as RealId)
     public string Letter => DisplayName.Length > 0 ? DisplayName[0].ToString().ToUpperInvariant() : "?";
 
     public VersionEntry(string realId, string displayName)
@@ -36,11 +37,11 @@ public sealed class VersionEntry
         DisplayName = displayName;
     }
 
-    // A ComboBox usa ToString() na caixa de seleção fechada.
+    // The ComboBox uses ToString() for its collapsed display value.
     public override string ToString() => DisplayName;
 }
 
-// Conta guardada: offline ou Microsoft.
+// Stored account: offline or Microsoft.
 public sealed class AccountEntry
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -174,9 +175,9 @@ public partial class MainWindow : Window
         catch { /* swallow */ }
     }
 
-    // ── Contadores do servidor Discord ───────────────────────
-    // "In Launcher" = total de membros do servidor
-    // "In Game"     = membros online no servidor
+    // ── Discord server counters ──────────────────────────────
+    // "In Launcher" = total number of server members
+    // "In Game" = members currently online on the server
     private void StartDiscordStats()
     {
         _ = RefreshDiscordStatsAsync();
@@ -269,10 +270,10 @@ public partial class MainWindow : Window
     private void SetPlayText(string t) { if (PlayText != null) PlayText.Text = t; }
 
     // ─────────────────────────────────────────────────────────
-    // WINDOW CHROME: drag, maximizar, fullscreen (F11 / Esc)
+    // WINDOW CHROME: drag, maximize, fullscreen (F11 / Esc)
     // ─────────────────────────────────────────────────────────
 
-    // Arrastar a janela; duplo clique na barra = maximizar / restaurar.
+    // Drag the window; double-click the title bar to maximize / restore.
     private void TopBar_MouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount == 2)
@@ -336,7 +337,7 @@ public partial class MainWindow : Window
 
     private void Window_StateChanged(object? sender, EventArgs e) => UpdateWindowCorners();
 
-    // Cantos arredondados só quando a janela está "solta".
+    // Rounded corners are used only when the window is floating.
     private void UpdateWindowCorners()
     {
         if (RootBorder == null) return;
@@ -784,7 +785,7 @@ public partial class MainWindow : Window
     }
 
     // ─────────────────────────────────────────────────────────
-    // LINKS / PASTAS
+    // LINKS / FOLDERS
     // ─────────────────────────────────────────────────────────
     private void OpenFolder(string path)
     {
@@ -880,6 +881,119 @@ public partial class MainWindow : Window
     private string ForgeJarPath => Path.Combine(_gameDir, "libraries", "net", "minecraftforge", "forge",
         "1.8.9-11.15.1.2318-1.8.9", "forge-1.8.9-11.15.1.2318-1.8.9.jar");
     private string ResourcesMarker => Path.Combine(FrostVersionDir, ".resources-version");
+
+    // Returns true when the selected version JSON declares a Forge library.
+    private bool IsForgeVersion(string versionId)
+    {
+        try
+        {
+            string versionJson = Path.Combine(_gameDir, "versions", versionId, versionId + ".json");
+            if (!File.Exists(versionJson)) return false;
+
+            using var document = JsonDocument.Parse(File.ReadAllText(versionJson));
+            if (!document.RootElement.TryGetProperty("libraries", out var libraries) ||
+                libraries.ValueKind != JsonValueKind.Array)
+                return false;
+
+            return libraries.EnumerateArray().Any(library =>
+                library.TryGetProperty("name", out var nameNode) &&
+                nameNode.ValueKind == JsonValueKind.String &&
+                (nameNode.GetString() ?? "").StartsWith(
+                    "net.minecraftforge:forge:", StringComparison.OrdinalIgnoreCase));
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("Forge version detection failed: " + ex.Message);
+            return false;
+        }
+    }
+
+    // Extracts only the libraries folder from the bundled ZIP into .minecraft/libraries.
+    // Supports entries such as "libraries/..." and "some-folder/libraries/...".
+    private async Task<int> ExtractForgeLibrariesAsync(string versionId)
+    {
+        string zipPath = Path.Combine(AppContext.BaseDirectory, "frost-resources.zip");
+        if (!File.Exists(zipPath))
+            throw new FileNotFoundException(
+                "The bundled frost-resources.zip file was not found next to the launcher.", zipPath);
+
+        string librariesRoot = Path.GetFullPath(Path.Combine(_gameDir, "libraries"));
+        Directory.CreateDirectory(librariesRoot);
+
+        int extractedFiles = 0;
+        using (var archive = ZipFile.OpenRead(zipPath))
+        {
+            foreach (var entry in archive.Entries)
+            {
+                string archivePath = entry.FullName.Replace('\\', '/');
+                string[] pathParts = archivePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                int librariesIndex = Array.FindIndex(pathParts, part =>
+                    part.Equals("libraries", StringComparison.OrdinalIgnoreCase));
+                if (librariesIndex < 0 || librariesIndex >= pathParts.Length - 1) continue;
+
+                string relativePath = Path.Combine(pathParts.Skip(librariesIndex + 1).ToArray());
+                if (string.IsNullOrWhiteSpace(relativePath) || string.IsNullOrEmpty(entry.Name))
+                    continue;
+
+                string destination = Path.GetFullPath(Path.Combine(
+                    librariesRoot,
+                    relativePath.Replace('/', Path.DirectorySeparatorChar)));
+
+                string rootPrefix = librariesRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                if (!destination.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("The ZIP contains an unsafe library path: " + entry.FullName);
+
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                await using var input = entry.Open();
+                await using var output = new FileStream(
+                    destination, FileMode.Create, FileAccess.Write, FileShare.None, 81920, true);
+                await input.CopyToAsync(output);
+                extractedFiles++;
+            }
+        }
+
+        if (extractedFiles == 0)
+            throw new InvalidDataException(
+                "No files were found under a 'libraries' folder inside frost-resources.zip.");
+
+        // If the selected version declares a Forge artifact path, verify that it was installed.
+        string versionJsonPath = Path.Combine(_gameDir, "versions", versionId, versionId + ".json");
+        using (var document = JsonDocument.Parse(await File.ReadAllTextAsync(versionJsonPath)))
+        {
+            if (document.RootElement.TryGetProperty("libraries", out var libraries) &&
+                libraries.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var library in libraries.EnumerateArray())
+                {
+                    if (!library.TryGetProperty("name", out var nameNode)) continue;
+                    string coordinate = nameNode.GetString() ?? "";
+                    if (!coordinate.StartsWith("net.minecraftforge:forge:", StringComparison.OrdinalIgnoreCase))
+                        continue;
+
+                    string relativePath = MavenPathFromCoordinate(coordinate);
+                    if (library.TryGetProperty("downloads", out var downloads) &&
+                        downloads.TryGetProperty("artifact", out var artifact) &&
+                        artifact.TryGetProperty("path", out var pathNode) &&
+                        !string.IsNullOrWhiteSpace(pathNode.GetString()))
+                        relativePath = pathNode.GetString()!;
+
+                    string forgeLibrary = Path.GetFullPath(Path.Combine(
+                        librariesRoot,
+                        relativePath.Replace('/', Path.DirectorySeparatorChar)
+                                    .Replace('\\', Path.DirectorySeparatorChar)));
+                    string rootPrefix = librariesRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                    if (!forgeLibrary.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException("Invalid Forge library path in version JSON.");
+                    if (!File.Exists(forgeLibrary) || new FileInfo(forgeLibrary).Length == 0)
+                        throw new FileNotFoundException(
+                            "The Forge library required by the selected version is missing from the ZIP.",
+                            forgeLibrary);
+                }
+            }
+        }
+
+        return extractedFiles;
+    }
 
     private bool FrostResourcesReady()
     {
@@ -1157,6 +1271,12 @@ public partial class MainWindow : Window
                     return;
                 }
             }
+            else if (IsForgeVersion(realId))
+            {
+                SetStatus("Installing Forge libraries...");
+                int extracted = await ExtractForgeLibrariesAsync(realId);
+                _frostSetupInfo = $"Extracted {extracted} Forge library files from frost-resources.zip";
+            }
 
             var launcher = new MinecraftLauncher(new MinecraftPath(_gameDir));
             var options  = new MLaunchOption
@@ -1183,11 +1303,8 @@ public partial class MainWindow : Window
                 options.ScreenHeight = res.H;
             }
 
-            // IMPORTANTE:
-            // Install files separately before creating the process.
-            // With CmlLib.Core 4.0.6, InstallAsync installs missing files
-            // and includes the appropriate Java Runtime when required.
-            // This allows the launcher to work on a machine without Java installed.
+            // Install files separately before creating the game process.
+            // CmlLib.Core 4.0.6 installs missing game files and the required Java runtime.
             SetStatus(Loc.T("verifying"));
             await Task.Delay(300);
 
