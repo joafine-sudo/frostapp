@@ -746,7 +746,7 @@
                                Foreground="#B8C2D6"
                                VerticalAlignment="Center" Margin="18,0,0,0"/>
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="❄" FontSize="15" Foreground="#5CC8FF" Margin="0,0,8,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="" FontSize="15" Foreground="#5CC8FF" Margin="0,0,8,0" VerticalAlignment="Center"/>
                         <TextBlock Text="FROST CLIENT" FontSize="12" FontWeight="Black"
                                    Foreground="White" VerticalAlignment="Center"/>
                     </StackPanel>
@@ -784,6 +784,43 @@
                                     Tag="{StaticResource IconSettings}"
                                     ToolTip="{Binding [nav_settings], Source={x:Static loc:Loc.Instance}}"/>
                         </StackPanel>
+                    </Border>
+
+                    <!-- CANTO SUPERIOR ESQUERDO: In Launcher / In Game -->
+                    <Border x:Name="StatsCard" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                            HorizontalAlignment="Left" VerticalAlignment="Top"
+                            Background="{StaticResource SurfaceGlass}"
+                            BorderBrush="{StaticResource EdgeRaised}"
+                            BorderThickness="1" CornerRadius="16" Padding="6,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="96"/>
+                                <ColumnDefinition Width="1"/>
+                                <ColumnDefinition Width="Auto" MinWidth="96"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- IN LAUNCHER = total de membros do Discord -->
+                            <StackPanel Grid.Column="0" HorizontalAlignment="Center" Margin="10,0">
+                                <TextBlock x:Name="LauncherCountText" Text="--" FontSize="22" FontWeight="Black"
+                                           Foreground="White" HorizontalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
+                                    <Ellipse Width="7" Height="7" Fill="#8B95A7" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="IN LAUNCHER" FontSize="9" FontWeight="Bold" Foreground="#8B95A7"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <Border Grid.Column="1" Background="#26FFFFFF" Margin="0,4"/>
+
+                            <!-- IN GAME = membros online -->
+                            <StackPanel Grid.Column="2" HorizontalAlignment="Center" Margin="10,0">
+                                <TextBlock x:Name="GameCountText" Text="--" FontSize="22" FontWeight="Black"
+                                           Foreground="#5CC8FF" HorizontalAlignment="Center"/>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
+                                    <Ellipse Width="7" Height="7" Fill="#3BE07A" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                                    <TextBlock Text="IN GAME" FontSize="9" FontWeight="Bold" Foreground="#8B95A7"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
                     </Border>
 
                     <!-- DIREITA: conta (topo) + Discord (por baixo), mesma largura -->
@@ -844,16 +881,11 @@
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{Binding [join_discord], Source={x:Static loc:Loc.Instance}}"
                                                FontSize="15" FontWeight="Bold" Foreground="White" TextWrapping="Wrap"/>
-                                    <TextBlock Text="+800 members now" FontSize="11" FontWeight="SemiBold"
-                                               Foreground="#8B95A7" Margin="0,4,0,0"/>
+
                                     <Button Style="{StaticResource BtnDiscord}" HorizontalAlignment="Left"
                                             Margin="0,10,0,0" Click="Discord_Click"
                                             ToolTip="{Binding [join_discord_tip], Source={x:Static loc:Loc.Instance}}">
-                                        <StackPanel Orientation="Horizontal">
-                                            <Path Data="{StaticResource IconPlay}" Fill="White" Width="10" Height="10"
-                                                  Stretch="Uniform" Margin="0,0,7,0"/>
-                                            <TextBlock Text="Discord" FontSize="11"/>
-                                        </StackPanel>
+                                        <TextBlock Text="Discord" FontSize="11"/>
                                     </Button>
                                 </StackPanel>
                                 <Path Grid.Column="1" Data="{StaticResource IconDiscord}" Fill="#5865F2"
