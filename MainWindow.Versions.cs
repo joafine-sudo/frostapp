@@ -218,11 +218,23 @@ public partial class MainWindow
                 InstallStatusText.Text = $"{a.Name} ({a.ProgressedTasks}/{a.TotalTasks})";
             });
 
+            var kind = LoaderBox?.SelectedIndex is int i and >= 0 ? (LoaderKind)i : LoaderKind.Vanilla;
+
+            // 1) vanilla (necessário como base de qualquer loader)
             await launcher.InstallAsync(versionId);
 
-            InstallStatusText.Text = $"{versionId} installed.";
-            _versionTab = "vanilla";
-            await RefreshVersionsAsync(versionId);
+            // 2) loader por cima, se escolhido
+            string finalId = versionId;
+            if (kind != LoaderKind.Vanilla)
+            {
+                InstallStatusText.Text = $"Installing {kind} for {versionId}...";
+                finalId = await FrostLoaders.InstallAsync(kind, versionId, launcher, _gameDir);
+                await launcher.InstallAsync(finalId);   // libs do loader
+            }
+
+            InstallStatusText.Text = $"{finalId} installed.";
+            _versionTab = kind == LoaderKind.Vanilla ? "vanilla" : "custom";
+            await RefreshVersionsAsync(finalId);
         }
         catch (Exception ex)
         {
@@ -296,7 +308,7 @@ public partial class MainWindow
         _pendingConfirmVersionId = id;
         ConfirmTitle.Text = "Delete version?";
         ConfirmMessage.Text =
-            $"\"{GetDisplayName(id)}\" and all the files inside .minecraft\\versions\\{id} will be removed. This cannot be undone.";
+            $"\"{GetDisplayName(id)}\", its version files, and its isolated instance data (mods, saves, options) will be removed. This cannot be undone.";
         ConfirmOverlay.Visibility = Visibility.Visible;
     }
 
@@ -336,22 +348,30 @@ public partial class MainWindow
         }
         if (IsFrostClientVersion(versionId)) return;
 
-        // Never delete anything outside .minecraft\versions (ids come from the UI Tag).
+        // Version IDs originate in the UI, but validate both paths before deleting.
         string versionsRoot = Path.GetFullPath(Path.Combine(_gameDir, "versions"));
-        string prefix = versionsRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-        string dir = Path.GetFullPath(Path.Combine(versionsRoot, versionId));
-        if (!dir.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return;
+        string instancesRoot = Path.GetFullPath(Path.Combine(_gameDir, "instances"));
+        string versionsPrefix = versionsRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        string instancesPrefix = instancesRoot.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        string versionDir = Path.GetFullPath(Path.Combine(versionsRoot, versionId));
+        string instanceDir = Path.GetFullPath(Path.Combine(instancesRoot, versionId));
+        if (!versionDir.StartsWith(versionsPrefix, StringComparison.OrdinalIgnoreCase) ||
+            !instanceDir.StartsWith(instancesPrefix, StringComparison.OrdinalIgnoreCase)) return;
 
         try
         {
             SetStatus($"Deleting {GetDisplayName(versionId)}...");
-            if (Directory.Exists(dir))
-                await Task.Run(() => Directory.Delete(dir, recursive: true));
+            await Task.Run(() =>
+            {
+                if (Directory.Exists(versionDir)) Directory.Delete(versionDir, recursive: true);
+                if (Directory.Exists(instanceDir)) Directory.Delete(instanceDir, recursive: true);
+            });
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            MessageBox.Show("Could not delete the version:\n\n" + ex.Message, "Frost Client",
+            MessageBox.Show("Could not completely delete the version and its instance data:\n\n" + ex.Message, "Frost Client",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
         }
 
         _cfg.VersionNames?.Remove(versionId);

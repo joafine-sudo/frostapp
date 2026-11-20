@@ -1247,9 +1247,18 @@
                                 <TextBlock Text="{Binding [mc_version], Source={x:Static loc:Loc.Instance}}"
                                            Style="{StaticResource Label}"/>
                                 <ComboBox x:Name="InstallVersionBox" Style="{StaticResource CB}" Margin="0,0,0,14"/>
+                                <TextBlock Text="Mod loader" Style="{StaticResource Label}"/>
+                                <ComboBox x:Name="LoaderBox" Style="{StaticResource CB}" Margin="0,0,0,14" SelectedIndex="0">
+                                    <ComboBoxItem Content="Vanilla (none)"/>
+                                    <ComboBoxItem Content="Fabric"/>
+                                    <ComboBoxItem Content="Quilt"/>
+                                    <ComboBoxItem Content="Forge"/>
+                                    <ComboBoxItem Content="NeoForge"/>
+                                </ComboBox>
                                 <Button x:Name="InstallButton" Style="{StaticResource BtnPrimary}" Margin="0,0,0,12"
                                         Content="{Binding [download_install], Source={x:Static loc:Loc.Instance}}"
                                         Click="InstallVersion_Click"/>
+                                <Button x:Name="ManageModsButton" Style="{StaticResource BtnSecondary}" Margin="0,0,0,12" Content="Manage mods (selected version)" Click="ManageMods_Click"/>
                                 <ProgressBar x:Name="InstallProgress" Height="4" Visibility="Collapsed"
                                              IsIndeterminate="True" Foreground="#5CC8FF" Background="#0C1018"
                                              BorderThickness="0" Margin="0,0,0,10"/>
@@ -1412,6 +1421,72 @@
             </Grid>
 
             <!-- ====== RENOMEAR VERSÃO ====== -->
+            <!-- ====== MODS (Modrinth) ====== -->
+            <Grid x:Name="ModsOverlay" Panel.ZIndex="230" Visibility="Collapsed" Background="#B3000000">
+                <Border Style="{StaticResource Panel}" Width="880" MaxHeight="660" Padding="24"
+                        HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/><RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/><RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock x:Name="ModsTitle" Grid.Row="0" Foreground="White" FontSize="18" FontWeight="Bold" Margin="0,0,0,14"/>
+                        <Grid Grid.Row="1" Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                            <TextBox x:Name="ModsSearchBox" Style="{StaticResource TB}" KeyDown="ModsSearchBox_KeyDown"/>
+                            <Button Grid.Column="1" Content="Search" Style="{StaticResource BtnPrimary}" Margin="10,0,0,0" Click="ModsSearch_Click"/>
+                        </Grid>
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="300"/></Grid.ColumnDefinitions>
+                            <ScrollViewer Grid.Column="0" MaxHeight="420" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl x:Name="ModsResults">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#66101826" BorderBrush="#2A3345" BorderThickness="1" CornerRadius="10" Padding="12" Margin="0,0,8,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding Title}" Foreground="White" FontWeight="Bold" FontSize="13"/>
+                                                        <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextMuted}" FontSize="11" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                                                        <TextBlock Text="{Binding DownloadsText}" Foreground="{StaticResource TextMuted}" FontSize="10" Margin="0,4,0,0"/>
+                                                    </StackPanel>
+                                                    <Button Grid.Column="1" Content="Install" Style="{StaticResource BtnPrimary}" Tag="{Binding ProjectId}"
+                                                            Click="ModInstall_Click" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Installed" Style="{StaticResource Label}"/>
+                                <ScrollViewer MaxHeight="400" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl x:Name="ModsInstalled">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,6">
+                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                                                    <TextBlock Text="{Binding FileName}" Foreground="White" FontSize="11" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="1" Content="Remove" Style="{StaticResource BtnSecondary}" Tag="{Binding FileName}" Click="ModRemove_Click" Margin="8,0,0,0"/>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </StackPanel>
+                        </Grid>
+                        <StackPanel Grid.Row="3" Margin="0,14,0,0">
+                            <ProgressBar x:Name="ModsProgress" Height="4" IsIndeterminate="True" Visibility="Collapsed"
+                                         Foreground="#5CC8FF" Background="#0C1018" BorderThickness="0" Margin="0,0,0,8"/>
+                            <Grid>
+                                <TextBlock x:Name="ModsStatus" Foreground="{StaticResource TextMuted}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,120,0"/>
+                                <Button Content="Close" Style="{StaticResource BtnSecondary}" HorizontalAlignment="Right" Click="ModsClose_Click"/>
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
             <Grid x:Name="RenameOverlay" Panel.ZIndex="240" Visibility="Collapsed" Background="#B3000000">
                 <Border Style="{StaticResource Panel}" Width="440" Padding="26"
                         HorizontalAlignment="Center" VerticalAlignment="Center">

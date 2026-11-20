@@ -96,7 +96,7 @@ public partial class MainWindow : Window
             versionId.Contains("frost client", StringComparison.OrdinalIgnoreCase))
             return Path.Combine(_gameDir, "mods");
 
-        return Path.Combine(_gameDir, "versions", versionId, "mods");
+        return Path.Combine(_gameDir, "instances", versionId, "mods");
     }
 
     private readonly string _settingsFile =
@@ -258,14 +258,14 @@ public partial class MainWindow : Window
             DownloadUpdateButton.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
 
         if (UpdateTitleText != null)
-            UpdateTitleText.Text = available ? "A new version is available"
+            UpdateTitleText.Text = available ? $"Version {result.LatestVersion} is available"
                 : result.Error != null ? "Could not check for updates"
                 : "You're up to date";
 
         if (UpdateStatusText != null)
             UpdateStatusText.Text = available
-                ? "Do you want to update Frost Client now? The launcher will restart."
-                : result.Error ?? "You're on the latest version of Frost Client.";
+                ? $"You have {FrostUpdater.CurrentVersion}. Update now? The launcher will close, install the update and open again."
+                : result.Error ?? $"You're on the latest version ({FrostUpdater.CurrentVersion}).";
     }
 
     private void SetUpdateBusy(bool busy, string? title = null, string? detail = null)
@@ -698,11 +698,12 @@ public partial class MainWindow : Window
         catch (Exception ex) { Debug.WriteLine("Save error: " + ex.Message); }
     }
 
-    private void OpenSettings_Click(object s, RoutedEventArgs e)  => SettingsOverlay.Visibility = Visibility.Visible;
+    private void OpenSettings_Click(object s, RoutedEventArgs e) => SettingsOverlay.Visibility = Visibility.Visible;
+
     private void CloseSettings_Click(object s, RoutedEventArgs e)
     {
-        SettingsOverlay.Visibility = Visibility.Collapsed;
         SaveSilently();
+        SettingsOverlay.Visibility = Visibility.Collapsed;
     }
 
     private void RamSlider_Changed(object s, RoutedPropertyChangedEventArgs<double> e)
@@ -1444,13 +1445,13 @@ public partial class MainWindow : Window
                 }
             }
 
-            var launcher = new MinecraftLauncher(new MinecraftPath(_gameDir));
+            var launcher = new MinecraftLauncher(CreateGamePath(realId));
             var options  = new MLaunchOption
             {
                 Session             = _session,
                 MaximumRamMb        = (int)(RamSlider?.Value ?? 4) * 1024,
                 GameLauncherName    = "Frost Client",
-                GameLauncherVersion = "1.0.11"
+                GameLauncherVersion = FrostUpdater.CurrentVersion
             };
 
             // Java / JVM arguments / resolution are still read from settings.json

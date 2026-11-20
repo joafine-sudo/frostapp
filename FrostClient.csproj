@@ -27,6 +27,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- This legacy duplicate has the same types as MainWindow.xaml.cs. -->
+    <Compile Remove="MainWindow_xaml.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Resource Include="icon.ico" Condition="Exists('icon.ico')" />
   </ItemGroup>
 
