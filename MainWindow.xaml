@@ -91,6 +91,8 @@
         <Geometry x:Key="IconYoutube">M21.58,7.19 C21.35,6.31 20.66,5.62 19.78,5.39 C18.18,4.96 12,4.96 12,4.96 C12,4.96 5.82,4.96 4.22,5.39 C3.34,5.62 2.65,6.31 2.42,7.19 C2,8.79 2,12.14 2,12.14 C2,12.14 2,15.49 2.42,17.09 C2.65,17.97 3.34,18.66 4.22,18.89 C5.82,19.32 12,19.32 12,19.32 C12,19.32 18.18,19.32 19.78,18.89 C20.66,18.66 21.35,17.97 21.58,17.09 C22,15.49 22,12.14 22,12.14 C22,12.14 22,8.79 21.58,7.19 Z M10,15.19 V9.09 L15.2,12.14 L10,15.19 Z</Geometry>
         <Geometry x:Key="IconPaypal">M5,3 H14 C18,3 20,5 20,8.5 C20,12.5 17.2,15 13.3,15 H10.5 L9.5,21 H5.8 L7.1,13 H4 L4.7,9 H7.8 Z M10,6.5 L9.2,11.5 H13 C15,11.5 16.2,10.4 16.2,8.6 C16.2,7.2 15.2,6.5 13.5,6.5 Z</Geometry>
 
+        <Geometry x:Key="IconUpdate">M10,3 H14 V10 H18 L12,17 L6,10 H10 Z M5,19 H19 V21 H5 Z</Geometry>
+
         <!-- ================= TOOLTIP ================= -->
         <Style TargetType="{x:Type ToolTip}">
             <Setter Property="Background" Value="#0C1018"/>
@@ -174,6 +176,7 @@
             <Setter Property="Margin" Value="0,0,0,8"/>
         </Style>
 
+        <!-- Item partilhado pelas 3 categorias de versões (Frost Client / Vanilla / Custom) -->
         <!-- ================= TEXTBOX (afundada) ================= -->
         <Style x:Key="TB" TargetType="TextBox">
             <Setter Property="Foreground" Value="White"/>
@@ -417,6 +420,38 @@
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
                                 <Setter TargetName="Face" Property="Margin" Value="0,2,0,1"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Links de navegação (topo) — texto simples, sem fundo em caixa -->
+        <Style x:Key="NavLink" TargetType="Button">
+            <Setter Property="Foreground" Value="#B9C6E0"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="10,8"/>
+            <Setter Property="Margin" Value="8,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent"
+                                BorderBrush="Transparent" BorderThickness="0,0,0,2"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#5CC8FF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="Tag" Value="Active">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#A9C8FF"/>
+                                <Setter Property="Foreground" Value="White"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -684,6 +719,150 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <!-- Os DataTemplates ficam no FIM dos recursos: usam StaticResource (BtnSecondary,
+             BtnEdit, BtnTrash...) e o WPF nao aceita referencias a recursos definidos mais abaixo. -->
+        <!-- Segmented tab (Versions page) -->
+        <Style x:Key="SegTab" TargetType="Button">
+            <Setter Property="Foreground" Value="#B9C6E0"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Padding" Value="18,9"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="Transparent" BorderBrush="Transparent"
+                                BorderThickness="1" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#22FFFFFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="Tag" Value="Active">
+                                <Setter TargetName="Bd" Property="Background" Value="#2B8FD1"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#7FDAFF"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Version card (Vanilla / Custom): long names wrap instead of being cut off -->
+        <DataTemplate x:Key="VersionItemTemplate">
+            <Border x:Name="Card" Width="270" MinHeight="156" Margin="0,0,16,16" Padding="16"
+                    CornerRadius="14" BorderThickness="1" BorderBrush="#447F9AC2" Background="#B51A2638"
+                    ToolTip="{Binding RealId}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Border Width="36" Height="36" CornerRadius="10" Background="#1E8AB8E8" HorizontalAlignment="Left">
+                            <TextBlock Text="{Binding Letter}" Foreground="#DDEBFF" FontSize="15" FontWeight="Black"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Border Background="#22FFFFFF" CornerRadius="8" Padding="8,2" Margin="0,0,8,0">
+                                <TextBlock Text="{Binding Badge}" FontSize="9" FontWeight="Bold" Foreground="#B9D6FF"/>
+                            </Border>
+                            <TextBlock x:Name="SelBadge" Text="SELECTED" Visibility="Collapsed"
+                                       Foreground="#7DBBFF" FontSize="9" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Grid>
+                    <StackPanel Grid.Row="1" VerticalAlignment="Bottom" Margin="0,10,0,10">
+                        <TextBlock Text="{Binding DisplayName}" Foreground="White" FontSize="15" FontWeight="Bold"
+                                   TextWrapping="Wrap" MaxHeight="42"/>
+                        <TextBlock Text="{Binding RealId}" Foreground="{StaticResource TextMuted}" FontSize="10"
+                                   Margin="0,4,0,0" TextWrapping="Wrap" MaxHeight="28"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                        <Button Tag="{Binding RealId}" Content="{Binding [select], Source={x:Static loc:Loc.Instance}}"
+                                Style="{StaticResource BtnSecondary}" Padding="14,6" FontSize="10" Margin="0,0,8,0"
+                                Click="SelectVersion_Click"/>
+                        <Button Tag="{Binding RealId}" Style="{StaticResource BtnEdit}"
+                                ToolTip="{Binding [rename], Source={x:Static loc:Loc.Instance}}"
+                                Click="RenameVersionFromList_Click"/>
+                        <Button Tag="{Binding RealId}" Style="{StaticResource BtnTrash}"
+                                ToolTip="{Binding [delete], Source={x:Static loc:Loc.Instance}}"
+                                Click="DeleteVersion_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger SourceName="Card" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Card" Property="BorderBrush" Value="#A9D4FF"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="Card" Property="BorderBrush" Value="#7DBBFF"/>
+                    <Setter TargetName="Card" Property="BorderThickness" Value="2"/>
+                    <Setter TargetName="Card" Property="Background" Value="#D0264267"/>
+                    <Setter TargetName="SelBadge" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- Frost Client's own version: shows the base (Minecraft 1.8.9), no delete button -->
+        <DataTemplate x:Key="FrostClientItemTemplate">
+            <Border x:Name="Card" Width="270" MinHeight="156" Margin="0,0,16,16" Padding="16"
+                    CornerRadius="14" BorderThickness="1" BorderBrush="#447F9AC2" Background="#B51A2638"
+                    ToolTip="{Binding RealId}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Border Width="36" Height="36" CornerRadius="10" HorizontalAlignment="Left"
+                                BorderThickness="1" BorderBrush="#7FDAFF">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                    <GradientStop Color="#5CBFF5" Offset="0"/>
+                                    <GradientStop Color="#2B8FD1" Offset="1"/>
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <TextBlock Text="{Binding Letter}" Foreground="White" FontSize="15" FontWeight="Black"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <TextBlock x:Name="SelBadge" Text="SELECTED" Visibility="Collapsed"
+                                   Foreground="#7DBBFF" FontSize="9" FontWeight="Bold"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
+                    <StackPanel Grid.Row="1" VerticalAlignment="Bottom" Margin="0,10,0,10">
+                        <TextBlock Text="{Binding DisplayName}" Foreground="White" FontSize="15" FontWeight="Bold"
+                                   TextWrapping="Wrap" MaxHeight="42"/>
+                        <TextBlock Text="Minecraft 1.8.9" Foreground="{StaticResource TextMuted}" FontSize="10"
+                                   Margin="0,4,0,0"/>
+                    </StackPanel>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal">
+                        <Button Tag="{Binding RealId}" Content="{Binding [select], Source={x:Static loc:Loc.Instance}}"
+                                Style="{StaticResource BtnSecondary}" Padding="14,6" FontSize="10" Margin="0,0,8,0"
+                                Click="SelectVersion_Click"/>
+                        <Button Tag="{Binding RealId}" Style="{StaticResource BtnEdit}"
+                                ToolTip="{Binding [rename], Source={x:Static loc:Loc.Instance}}"
+                                Click="RenameVersionFromList_Click"/>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <Trigger SourceName="Card" Property="IsMouseOver" Value="True">
+                    <Setter TargetName="Card" Property="BorderBrush" Value="#A9D4FF"/>
+                </Trigger>
+                <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                    <Setter TargetName="Card" Property="BorderBrush" Value="#7DBBFF"/>
+                    <Setter TargetName="Card" Property="BorderThickness" Value="2"/>
+                    <Setter TargetName="Card" Property="Background" Value="#D0264267"/>
+                    <Setter TargetName="SelBadge" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
     </Window.Resources>
 
     <!-- ====================== ROOT ====================== -->
@@ -729,217 +908,371 @@
             <!-- =================== ECRÃ ÚNICO =================== -->
             <Grid x:Name="MainLauncherUI">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="42"/>
+                    <RowDefinition Height="76"/>
                     <RowDefinition Height="*"/>
                 </Grid.RowDefinitions>
 
-                <!-- BARRA DE TÍTULO -->
+                <!-- Top navigation -->
                 <Grid Grid.Row="0" MouseLeftButtonDown="TopBar_MouseDown">
-                    <Grid.Background>
-                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                            <GradientStop Color="#99000000" Offset="0"/>
-                            <GradientStop Color="#44000000" Offset="1"/>
-                        </LinearGradientBrush>
-                    </Grid.Background>
-                    <Border Height="1" VerticalAlignment="Bottom" Background="#1AFFFFFF"/>
-                    <TextBlock x:Name="StatusText" Text="" FontSize="10"
-                               Foreground="#B8C2D6"
-                               VerticalAlignment="Center" Margin="18,0,0,0"/>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <TextBlock Text="" FontSize="15" Foreground="#5CC8FF" Margin="0,0,8,0" VerticalAlignment="Center"/>
-                        <TextBlock Text="FROST CLIENT" FontSize="12" FontWeight="Black"
-                                   Foreground="White" VerticalAlignment="Center"/>
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0">
-                        <Button Style="{StaticResource BtnChrome}" Tag="{StaticResource IconMin}" Click="Minimize_Click"/>
-                        <Button Style="{StaticResource BtnChrome}" Tag="{StaticResource IconMax}" Click="Maximize_Click"/>
-                        <Button Style="{StaticResource BtnChrome}" Tag="{StaticResource IconClose}" Click="Close_Click"/>
-                    </StackPanel>
+                    <Border Background="#990A111D"/>
+                    <Border Height="1" VerticalAlignment="Bottom" Background="#22FFFFFF"/>
+                    <Grid Margin="34,0,22,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="FROST CLIENT" FontSize="25" FontWeight="Black"
+                                   Foreground="#EAF1FF" VerticalAlignment="Center"/>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Button x:Name="NavHomeButton" Content="Home" Tag="Active"
+                                    Style="{StaticResource NavLink}" Click="ShowHome_Click"/>
+                            <Button x:Name="NavVersionsButton" Content="Versions"
+                                    Style="{StaticResource NavLink}" Click="OpenVersions_Click"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Grid Margin="0,0,8,0">
+                                <Button Style="{StaticResource SocialIcon}" Tag="{StaticResource IconUpdate}"
+                                        Click="OpenUpdates_Click" ToolTip="Updates" Margin="0"/>
+                                <Ellipse x:Name="UpdateDot" Width="9" Height="9" Fill="#5CC8FF"
+                                         Stroke="#0A111D" StrokeThickness="1.5"
+                                         HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,6,6,0"
+                                         Visibility="Collapsed" IsHitTestVisible="False"/>
+                            </Grid>
+                            <Button Style="{StaticResource SocialIcon}" Tag="{StaticResource IconSettings}"
+                                    Click="OpenSettings_Click" ToolTip="Settings" Margin="0,0,8,0"/>
+                            <Button Cursor="Hand" Focusable="False" Click="OpenAccount_Click"
+                                    Background="Transparent" BorderThickness="0" Padding="4">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Border Width="34" Height="34" CornerRadius="9" Background="#172235"
+                                            BorderBrush="#53647F" BorderThickness="1" ClipToBounds="True">
+                                        <Grid>
+                                            <TextBlock Text="❄" Foreground="#8FA4C8" FontSize="16"
+                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                            <Image x:Name="TopPlayerAvatar" Stretch="UniformToFill"
+                                                   RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                        </Grid>
+                                    </Border>
+                                    <StackPanel Margin="9,0,10,0" VerticalAlignment="Center" MaxWidth="130">
+                                        <TextBlock x:Name="TopPlayerName"
+                                                   Text="{Binding [not_logged_in], Source={x:Static loc:Loc.Instance}}"
+                                                   Foreground="White" FontSize="12" FontWeight="Bold"
+                                                   TextTrimming="CharacterEllipsis"/>
+                                        <TextBlock x:Name="TopPlayerType" Text="" Foreground="#9CB9EA" FontSize="9"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource BtnChrome}" Tag="{StaticResource IconMin}" Click="Minimize_Click"/>
+                            <Button Style="{StaticResource BtnChrome}" Tag="{StaticResource IconMax}" Click="Maximize_Click"/>
+                            <Button Style="{StaticResource BtnChrome}" Tag="{StaticResource IconClose}" Click="Close_Click"/>
+                        </StackPanel>
+                    </Grid>
                 </Grid>
 
-                <!-- CONTEÚDO -->
-                <Grid Grid.Row="1" Margin="26,24,26,28">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
+                <!-- Main home content -->
+                <Grid x:Name="HomePage" Grid.Row="1" Margin="38,20,38,22">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*" MinHeight="300"/>
+                        <RowDefinition Height="190"/>
                     </Grid.RowDefinitions>
 
-                    <!-- ESQUERDA: barra lateral vertical (atalhos + definições) -->
-                    <Border x:Name="SideRail" Opacity="0" Grid.Column="0" Grid.Row="0" VerticalAlignment="Center"
-                            Background="{StaticResource SurfaceGlass}" BorderBrush="{StaticResource EdgeRaised}"
-                            BorderThickness="1" CornerRadius="22" Padding="7,10">
-                        <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
-                        <StackPanel>
-                            <Button Style="{StaticResource SocialIcon}" Click="Website_Click" ToolTip="Website" Tag="{StaticResource IconWeb}"/>
-                            <Button Style="{StaticResource SocialIcon}" Click="Github_Click" ToolTip="GitHub" Tag="{StaticResource IconGithub}"/>
-                            <Button Style="{StaticResource SocialIcon}" Click="Youtube_Click" ToolTip="YouTube" Tag="{StaticResource IconYoutube}"/>
-                            <Button Style="{StaticResource SocialIcon}" Click="Paypal_Click" ToolTip="PayPal" Tag="{StaticResource IconPaypal}"/>
-                            <Border Height="1" Background="#26FFFFFF" Margin="8,8"/>
-                            <Button Style="{StaticResource SocialIcon}" Click="OpenSettings_Click"
-                                    Tag="{StaticResource IconSettings}"
-                                    ToolTip="{Binding [nav_settings], Source={x:Static loc:Loc.Instance}}"/>
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="250"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Left"
+                                    MaxWidth="620" Margin="0,0,24,18">
+                            <TextBlock Text="FROST CLIENT  /  HOME" Foreground="#B6C7E4"
+                                       FontSize="11" FontWeight="Bold" Margin="0,0,0,16"/>
+                            <TextBlock x:Name="HeroVersionTitle" Text="Frost Client"
+                                       FontSize="48" FontWeight="Black" Foreground="#F1F5FF"
+                                       TextWrapping="Wrap" Margin="0,0,0,8"/>
+                            <TextBlock Text="Ready for your next adventure?" Foreground="#D4DDF0"
+                                       FontSize="15" FontWeight="SemiBold" Margin="0,0,0,24"/>
+                            <StackPanel Orientation="Horizontal">
+                                <Button x:Name="PlayButton" Style="{StaticResource BtnPlay}"
+                                        Width="178" Height="58" Click="Play_Click">
+                                    <TextBlock x:Name="PlayText"
+                                               Text="{Binding [play], Source={x:Static loc:Loc.Instance}}"
+                                               FontSize="20" FontWeight="Black" Foreground="#06223A"
+                                               Margin="0,0,0,4"/>
+                                </Button>
+                                <Button Content="Manage versions" Style="{StaticResource BtnSecondary}"
+                                        Margin="14,0,0,0" Padding="18,12" Click="OpenVersions_Click"/>
+                            </StackPanel>
+                            <TextBlock x:Name="StatusText" Text="" Foreground="#B8C2D6"
+                                       FontSize="10" Margin="0,18,0,0" TextWrapping="Wrap"/>
                         </StackPanel>
-                    </Border>
 
-                    <!-- CANTO SUPERIOR ESQUERDO: In Launcher / In Game -->
-                    <Border x:Name="StatsCard" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
-                            HorizontalAlignment="Left" VerticalAlignment="Top"
-                            Background="{StaticResource SurfaceGlass}"
-                            BorderBrush="{StaticResource EdgeRaised}"
-                            BorderThickness="1" CornerRadius="16" Padding="6,10">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" MinWidth="96"/>
-                                <ColumnDefinition Width="1"/>
-                                <ColumnDefinition Width="Auto" MinWidth="96"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- IN LAUNCHER = total de membros do Discord -->
-                            <StackPanel Grid.Column="0" HorizontalAlignment="Center" Margin="10,0">
-                                <TextBlock x:Name="LauncherCountText" Text="--" FontSize="22" FontWeight="Black"
-                                           Foreground="White" HorizontalAlignment="Center"/>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
-                                    <Ellipse Width="7" Height="7" Fill="#8B95A7" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="IN LAUNCHER" FontSize="9" FontWeight="Bold" Foreground="#8B95A7"/>
-                                </StackPanel>
-                            </StackPanel>
-
-                            <Border Grid.Column="1" Background="#26FFFFFF" Margin="0,4"/>
-
-                            <!-- IN GAME = membros online -->
-                            <StackPanel Grid.Column="2" HorizontalAlignment="Center" Margin="10,0">
-                                <TextBlock x:Name="GameCountText" Text="--" FontSize="22" FontWeight="Black"
-                                           Foreground="#5CC8FF" HorizontalAlignment="Center"/>
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,3,0,0">
-                                    <Ellipse Width="7" Height="7" Fill="#3BE07A" Margin="0,0,6,0" VerticalAlignment="Center"/>
-                                    <TextBlock Text="IN GAME" FontSize="9" FontWeight="Bold" Foreground="#8B95A7"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Grid>
-                    </Border>
-
-                    <!-- DIREITA: conta (topo) + Discord (por baixo), mesma largura -->
-                    <StackPanel x:Name="RightColumn" Opacity="0" Grid.Column="2" Grid.Row="0" VerticalAlignment="Top" Width="250">
-                        <StackPanel.RenderTransform><TranslateTransform/></StackPanel.RenderTransform>
-                        <Button Cursor="Hand" Focusable="False" Click="OpenAccount_Click" Margin="0,0,0,14">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="Bd" Background="{StaticResource SurfaceGlass}"
-                                            BorderBrush="{StaticResource EdgeRaised}"
-                                            BorderThickness="1" CornerRadius="16" Padding="8,0,14,0" Height="50">
-                                        <ContentPresenter VerticalAlignment="Center"/>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Bd" Property="Background" Value="#E61A2130"/>
-                                            <Setter TargetName="Bd" Property="BorderBrush" Value="#5CC8FF"/>
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <Border Width="34" Height="34" CornerRadius="9" Background="#0C1018"
-                                        BorderThickness="1.5" BorderBrush="{StaticResource EdgeInset}"
-                                        ClipToBounds="True" Margin="0,0,12,0">
-                                    <Grid>
-                                        <TextBlock Text="❄" FontSize="15" Foreground="#3A4560"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                        <Image x:Name="TopPlayerAvatar" Stretch="UniformToFill"
-                                               RenderOptions.BitmapScalingMode="NearestNeighbor"/>
-                                    </Grid>
-                                </Border>
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock x:Name="TopPlayerName"
-                                               Text="{Binding [not_logged_in], Source={x:Static loc:Loc.Instance}}"
-                                               FontSize="13" FontWeight="Bold" Foreground="White"
-                                               TextTrimming="CharacterEllipsis"/>
-                                    <TextBlock x:Name="TopPlayerType" Text="" FontSize="9" Foreground="#5CC8FF"/>
-                                </StackPanel>
-                                <Path Grid.Column="2" Data="M0,0 L4,4 L8,0 Z" Fill="#8B95A7" Width="8" Height="5"
-                                      Stretch="Uniform" Margin="12,0,0,0" VerticalAlignment="Center"/>
-                            </Grid>
-                        </Button>
-
-                        <Border Background="{StaticResource DiscordBg}"
-                                BorderBrush="{StaticResource EdgeRaised}"
-                                BorderThickness="1" CornerRadius="16" Padding="14">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center">
+                        <StackPanel x:Name="RightColumn" Grid.Column="1" Opacity="0"
+                                    VerticalAlignment="Top" HorizontalAlignment="Right" Width="230">
+                            <StackPanel.RenderTransform><TranslateTransform/></StackPanel.RenderTransform>
+                            <Border Background="#B8172233" BorderBrush="#55FFFFFF"
+                                    BorderThickness="1" CornerRadius="16" Padding="15" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="1"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock x:Name="LauncherCountText" Text="--" Foreground="White"
+                                                   FontSize="22" FontWeight="Black"/>
+                                        <TextBlock Text="IN LAUNCHER" Foreground="#AAB8CE" FontSize="9" FontWeight="Bold"/>
+                                    </StackPanel>
+                                    <Border Grid.Column="1" Background="#44FFFFFF" Margin="0,4"/>
+                                    <StackPanel Grid.Column="2" Margin="12,0,0,0">
+                                        <TextBlock x:Name="GameCountText" Text="--" Foreground="#8BCBFF"
+                                                   FontSize="22" FontWeight="Black"/>
+                                        <TextBlock Text="IN GAME" Foreground="#AAB8CE" FontSize="9" FontWeight="Bold"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <Border Background="{StaticResource DiscordBg}" BorderBrush="#55FFFFFF"
+                                    BorderThickness="1" CornerRadius="16" Padding="15">
+                                <StackPanel>
                                     <TextBlock Text="{Binding [join_discord], Source={x:Static loc:Loc.Instance}}"
-                                               FontSize="15" FontWeight="Bold" Foreground="White" TextWrapping="Wrap"/>
-
+                                               FontSize="14" FontWeight="Bold" Foreground="White" TextWrapping="Wrap"/>
                                     <Button Style="{StaticResource BtnDiscord}" HorizontalAlignment="Left"
                                             Margin="0,10,0,0" Click="Discord_Click"
                                             ToolTip="{Binding [join_discord_tip], Source={x:Static loc:Loc.Instance}}">
                                         <TextBlock Text="Discord" FontSize="11"/>
                                     </Button>
                                 </StackPanel>
-                                <Path Grid.Column="1" Data="{StaticResource IconDiscord}" Fill="#5865F2"
-                                      Width="36" Height="36" Stretch="Uniform" VerticalAlignment="Top"
-                                      Margin="10,0,0,0"/>
-                            </Grid>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Retained named elements for existing entrance animations and compatibility. -->
+                        <Border x:Name="StatsCard" Visibility="Collapsed"/>
+                        <Border x:Name="SideRail" Visibility="Collapsed" Opacity="0">
+                            <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
                         </Border>
-                    </StackPanel>
+                    </Grid>
 
-                    <!-- BASE: dock compacta (versões + seletor + JOGAR) -->
-                    <Border x:Name="DockPanel" Opacity="0" Grid.Row="1" Grid.ColumnSpan="3"
-                            HorizontalAlignment="Center" Width="560"
-                            Background="{StaticResource DockBg}" BorderBrush="{StaticResource EdgeRaised}"
-                            BorderThickness="1" CornerRadius="20" Padding="10">
-                        <Border.RenderTransform><TranslateTransform/></Border.RenderTransform>
-                        <Border.Effect>
-                            <DropShadowEffect Color="Black" BlurRadius="26" ShadowDepth="5" Opacity="0.45"/>
-                        </Border.Effect>
-                        <Grid Height="62">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="12"/>
-                                <ColumnDefinition Width="170"/>
-                            </Grid.ColumnDefinitions>
-
-                            <Button Style="{StaticResource BtnSquare}" Width="58" Height="62"
-                                    Tag="{StaticResource IconVersions}" VerticalAlignment="Center"
-                                    Click="OpenVersions_Click"
-                                    ToolTip="{Binding [nav_versions], Source={x:Static loc:Loc.Instance}}"/>
-
-                            <ComboBox x:Name="VersionBox" Grid.Column="1" Style="{StaticResource CB}"
-                                      DisplayMemberPath="DisplayName"
-                                      SelectionChanged="Version_Changed"
-                                      Height="58" MinHeight="58" FontSize="14"
-                                      VerticalAlignment="Top" Margin="10,0,0,0"/>
-
-                            <!-- mantido só porque o code-behind escreve aqui; fica escondido -->
-                            <TextBlock x:Name="HomeVersionLabel" Grid.Column="1" Visibility="Collapsed"/>
-
-                            <Button x:Name="PlayButton" Grid.Column="3" Style="{StaticResource BtnPlay}"
-                                    Click="Play_Click">
-                                <TextBlock x:Name="PlayText"
-                                           Text="{Binding [play], Source={x:Static loc:Loc.Instance}}"
-                                           FontSize="22" FontWeight="Black" Foreground="#06223A" Margin="0,0,0,4"/>
-                            </Button>
+                    <!-- Installed-version gallery -->
+                    <Grid x:Name="DockPanel" Grid.Row="1" Opacity="0">
+                        <Grid.RenderTransform><TranslateTransform/></Grid.RenderTransform>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <Grid Margin="0,0,0,10">
+                            <TextBlock Text="YOUR VERSIONS" Foreground="#DCE7FA" FontSize="11"
+                                       FontWeight="Bold" VerticalAlignment="Center"/>
+                            <Button Content="View all" Style="{StaticResource BtnSecondary}"
+                                    HorizontalAlignment="Right" Padding="12,5" Click="OpenVersions_Click"/>
                         </Grid>
-                    </Border>
+                        <ListBox x:Name="VersionGallery" Grid.Row="1"
+                                 ItemsSource="{Binding ItemsSource, ElementName=VersionList}"
+                                 SelectedItem="{Binding SelectedItem, ElementName=VersionBox, Mode=TwoWay}"
+                                 Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                 HorizontalContentAlignment="Stretch">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem">
+                                    <Setter Property="Padding" Value="0"/>
+                                    <Setter Property="Margin" Value="0,0,14,0"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Background" Value="Transparent"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="ListBoxItem">
+                                                <Border x:Name="Card" Width="250" Height="132"
+                                                        Background="#B51A2638" BorderBrush="#447F9AC2"
+                                                        BorderThickness="1" CornerRadius="14" Padding="15">
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="*"/>
+                                                            <RowDefinition Height="Auto"/>
+                                                        </Grid.RowDefinitions>
+                                                        <Border Background="#1E8AB8E8" CornerRadius="9"
+                                                                HorizontalAlignment="Right" Width="34" Height="34">
+                                                            <TextBlock Text="{Binding Letter}" Foreground="#DDEBFF"
+                                                                       FontSize="14" FontWeight="Black"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                                        </Border>
+                                                        <StackPanel Grid.Row="1">
+                                                            <TextBlock Text="{Binding DisplayName}" Foreground="White"
+                                                                       FontSize="16" FontWeight="Bold"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Text="{Binding RealId}" Foreground="#AAB8CE"
+                                                                       FontSize="10" Margin="0,4,0,0"
+                                                                       TextTrimming="CharacterEllipsis"/>
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Card" Property="BorderBrush" Value="#7DBBFF"/>
+                                                        <Setter TargetName="Card" Property="BorderThickness" Value="2"/>
+                                                        <Setter TargetName="Card" Property="Background" Value="#D0264267"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Card" Property="BorderBrush" Value="#A9D4FF"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                        </ListBox>
+                    </Grid>
                 </Grid>
+
+                <!-- =================== PÁGINA: VERSIONS =================== -->
+                <Grid x:Name="VersionsPage" Grid.Row="1" Visibility="Collapsed">
+                    <!-- background próprio desta página -->
+                    <Rectangle IsHitTestVisible="False">
+                        <Rectangle.Fill>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Color="#F2081019" Offset="0"/>
+                                <GradientStop Color="#F00F1A2C" Offset="0.55"/>
+                                <GradientStop Color="#F2070B13" Offset="1"/>
+                            </LinearGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <Rectangle IsHitTestVisible="False">
+                        <Rectangle.Fill>
+                            <RadialGradientBrush Center="0.1,0" RadiusX="0.75" RadiusY="0.9">
+                                <GradientStop Color="#552E7DC0" Offset="0"/>
+                                <GradientStop Color="#002E7DC0" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+                    <Rectangle IsHitTestVisible="False">
+                        <Rectangle.Fill>
+                            <RadialGradientBrush Center="1,1" RadiusX="0.6" RadiusY="0.7">
+                                <GradientStop Color="#334A5CC8" Offset="0"/>
+                                <GradientStop Color="#004A5CC8" Offset="1"/>
+                            </RadialGradientBrush>
+                        </Rectangle.Fill>
+                    </Rectangle>
+
+                    <Grid Margin="38,26,38,24">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="24"/>
+                            <ColumnDefinition Width="300"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- esquerda: separadores + lista -->
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <Grid Margin="0,0,0,18">
+                                <StackPanel HorizontalAlignment="Left">
+                                    <TextBlock Text="FROST CLIENT  /  VERSIONS" Foreground="#B6C7E4"
+                                               FontSize="11" FontWeight="Bold" Margin="0,0,0,10"/>
+                                    <TextBlock Text="{Binding [nav_versions], Source={x:Static loc:Loc.Instance}}"
+                                               FontSize="34" FontWeight="Black" Foreground="#F1F5FF"/>
+                                    <TextBlock Text="{Binding [versions_sub], Source={x:Static loc:Loc.Instance}}"
+                                               FontSize="12" Foreground="#B8C2D6" Margin="0,6,0,0"/>
+                                </StackPanel>
+                                <Button Content="{Binding [refresh], Source={x:Static loc:Loc.Instance}}"
+                                        Style="{StaticResource BtnSecondary}" Padding="14,8"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        Click="RefreshVersions_Click"/>
+                            </Grid>
+
+                            <!-- Category tabs + search -->
+                            <Grid Grid.Row="1" Margin="0,0,0,18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="230"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Background="#99080C14" BorderBrush="{StaticResource EdgeInset}"
+                                        BorderThickness="1.5" CornerRadius="12" Padding="4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="TabFrostButton" Content="Frost Client" Tag="Active"
+                                                CommandParameter="frost" Style="{StaticResource SegTab}"
+                                                Click="VersionTab_Click"/>
+                                        <Button x:Name="TabVanillaButton" Content="Vanilla"
+                                                CommandParameter="vanilla" Style="{StaticResource SegTab}"
+                                                Click="VersionTab_Click"/>
+                                        <Button x:Name="TabCustomButton" Content="Custom"
+                                                CommandParameter="custom" Style="{StaticResource SegTab}"
+                                                Click="VersionTab_Click"/>
+                                    </StackPanel>
+                                </Border>
+                                <Grid Grid.Column="2" VerticalAlignment="Center">
+                                    <TextBox x:Name="VersionSearchBox" Style="{StaticResource TB}" Padding="12,8"
+                                             TextChanged="VersionSearch_Changed"/>
+                                    <TextBlock x:Name="VersionSearchHint" Text="Search versions..."
+                                               Foreground="{StaticResource TextMuted}" FontSize="12"
+                                               Margin="14,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                                </Grid>
+                            </Grid>
+
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="0,0,12,0">
+                                    <!-- Hidden data source: the home gallery (VersionGallery) binds to this ItemsSource. -->
+                                    <ItemsControl x:Name="VersionList" Visibility="Collapsed"/>
+
+                                    <ItemsControl x:Name="VersionTabList">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate><WrapPanel/></ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+
+                                    <Border x:Name="VersionsEmpty" Visibility="Collapsed" Background="#66101826"
+                                            BorderBrush="#2A3345" BorderThickness="1" CornerRadius="14" Padding="30">
+                                        <TextBlock x:Name="VersionsEmptyText" Foreground="{StaticResource TextMuted}"
+                                                   FontSize="12" TextAlignment="Center" TextWrapping="Wrap"/>
+                                    </Border>
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
+
+                        <!-- direita: instalar nova versão -->
+                        <Border Grid.Column="2" VerticalAlignment="Top"
+                                Background="#B8172233" BorderBrush="#55FFFFFF"
+                                BorderThickness="1" CornerRadius="16" Padding="18">
+                            <StackPanel>
+                                <TextBlock Text="{Binding [install_new], Source={x:Static loc:Loc.Instance}}"
+                                           Foreground="White" FontSize="15" FontWeight="Bold" Margin="0,0,0,14"/>
+                                <TextBlock Text="{Binding [mc_version], Source={x:Static loc:Loc.Instance}}"
+                                           Style="{StaticResource Label}"/>
+                                <ComboBox x:Name="InstallVersionBox" Style="{StaticResource CB}" Margin="0,0,0,14"/>
+                                <Button x:Name="InstallButton" Style="{StaticResource BtnPrimary}" Margin="0,0,0,12"
+                                        Content="{Binding [download_install], Source={x:Static loc:Loc.Instance}}"
+                                        Click="InstallVersion_Click"/>
+                                <ProgressBar x:Name="InstallProgress" Height="4" Visibility="Collapsed"
+                                             IsIndeterminate="True" Foreground="#5CC8FF" Background="#0C1018"
+                                             BorderThickness="0" Margin="0,0,0,10"/>
+                                <Border Background="#0A0F17" BorderBrush="{StaticResource EdgeInset}"
+                                        BorderThickness="1.5" CornerRadius="10" Padding="12">
+                                    <TextBlock x:Name="InstallStatusText" FontSize="10" TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextMuted}"
+                                               Text="{Binding [waiting_install], Source={x:Static loc:Loc.Instance}}"/>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
+
+                <!-- Hidden selector remains the source of truth for launch logic. -->
+                <ComboBox x:Name="VersionBox" Visibility="Collapsed"
+                          DisplayMemberPath="DisplayName" SelectionChanged="Version_Changed"/>
+                <TextBlock x:Name="HomeVersionLabel" Visibility="Collapsed"/>
             </Grid>
 
             <!-- ====== DEFINIÇÕES ====== -->
             <Grid x:Name="SettingsOverlay" Panel.ZIndex="100" Visibility="Collapsed" Background="#B3000000">
-                <Border Style="{StaticResource Panel}" Width="560" MaxHeight="620"
+                <Border Style="{StaticResource Panel}" Width="560" MaxHeight="680"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -959,22 +1292,12 @@
                                 <TextBlock Text="{Binding [language_desc], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowDesc}"/>
                                 <ComboBox x:Name="LanguageBox" Style="{StaticResource CB}" Margin="0,0,0,22"
                                           SelectionChanged="Language_Changed">
-                                    <ComboBoxItem Content="English" Tag="en-GB"/>
+                                    <ComboBoxItem Content="English (UK)" Tag="en-GB"/>
                                     <ComboBoxItem Content="Português" Tag="pt-PT"/>
                                     <ComboBoxItem Content="Español" Tag="es-ES"/>
                                     <ComboBoxItem Content="Français" Tag="fr-FR"/>
                                     <ComboBoxItem Content="Русский" Tag="ru-RU"/>
                                     <ComboBoxItem Content="ไทย" Tag="th-TH"/>
-                                </ComboBox>
-
-                                <TextBlock Text="{Binding [bg], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
-                                <TextBlock Text="{Binding [bg_desc], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowDesc}"/>
-                                <ComboBox x:Name="WallpaperBox" Style="{StaticResource CB}" Margin="0,0,0,22"
-                                          SelectionChanged="Wallpaper_Changed">
-                                    <ComboBoxItem Content="{Binding [wp_default], Source={x:Static loc:Loc.Instance}}" Tag="default.png"/>
-                                    <ComboBoxItem Content="{Binding [wp_iceland], Source={x:Static loc:Loc.Instance}}" Tag="iceland.jpg"/>
-                                    <ComboBoxItem Content="{Binding [wp_house], Source={x:Static loc:Loc.Instance}}" Tag="house.jpg"/>
-                                    <ComboBoxItem Content="{Binding [wp_fox], Source={x:Static loc:Loc.Instance}}" Tag="fox.jpg"/>
                                 </ComboBox>
 
                                 <TextBlock Text="{Binding [ram], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource RowTitle}"/>
@@ -1050,122 +1373,41 @@
                 </Border>
             </Grid>
 
-            <!-- ====== VERSÕES ====== -->
-            <Grid x:Name="VersionsOverlay" Panel.ZIndex="105" Visibility="Collapsed" Background="#B3000000">
-                <Border Style="{StaticResource Panel}" Width="780" Height="520"
+            <!-- ====== UPDATES ====== -->
+            <Grid x:Name="UpdateOverlay" Panel.ZIndex="120" Visibility="Collapsed" Background="#B3000000">
+                <Border Style="{StaticResource Panel}" Width="460" Padding="26"
                         HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <Grid Margin="0,0,0,18">
-                            <StackPanel>
-                                <TextBlock Text="{Binding [nav_versions], Source={x:Static loc:Loc.Instance}}"
-                                           FontSize="20" FontWeight="Bold" Foreground="White"/>
-                                <TextBlock Text="{Binding [versions_sub], Source={x:Static loc:Loc.Instance}}"
-                                           FontSize="11" Foreground="{StaticResource TextMuted}" Margin="0,3,0,0"/>
-                            </StackPanel>
+                    <StackPanel>
+                        <Grid Margin="0,0,0,6">
+                            <TextBlock Text="Updates" FontSize="20" FontWeight="Bold" Foreground="White"
+                                       VerticalAlignment="Center"/>
                             <Button Style="{StaticResource BtnChrome}" Tag="{StaticResource IconClose}"
-                                    HorizontalAlignment="Right" VerticalAlignment="Top" Click="CloseVersions_Click"/>
+                                    HorizontalAlignment="Right" Click="CloseUpdates_Click"/>
                         </Grid>
-
-                        <Grid Grid.Row="1">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="270"/>
-                                <ColumnDefinition Width="22"/>
-                                <ColumnDefinition Width="*"/>
-                            </Grid.ColumnDefinitions>
-
-                            <!-- Instalar nova versão -->
-                            <Border Background="{StaticResource Surface2}" BorderBrush="{StaticResource EdgeRaised}"
-                                    BorderThickness="1" CornerRadius="14" Padding="16" VerticalAlignment="Top">
-                                <StackPanel>
-                                    <TextBlock Text="{Binding [install_new], Source={x:Static loc:Loc.Instance}}"
-                                               Style="{StaticResource Label}" Margin="0,0,0,12"/>
-                                    <TextBlock Text="{Binding [mc_version], Source={x:Static loc:Loc.Instance}}" Style="{StaticResource Label}"/>
-                                    <ComboBox x:Name="InstallVersionBox" Style="{StaticResource CB}" Margin="0,0,0,14"/>
-                                    <Button x:Name="InstallButton" Style="{StaticResource BtnPrimary}" Margin="0,0,0,12"
-                                            Content="{Binding [download_install], Source={x:Static loc:Loc.Instance}}"
-                                            Click="InstallVersion_Click"/>
-                                    <ProgressBar x:Name="InstallProgress" Height="4" Visibility="Collapsed"
-                                                 IsIndeterminate="True" Foreground="#5CC8FF" Background="#0C1018"
-                                                 BorderThickness="0" Margin="0,0,0,10"/>
-                                    <Border Background="#0A0F17" BorderBrush="{StaticResource EdgeInset}"
-                                            BorderThickness="1.5" CornerRadius="10" Padding="12">
-                                        <TextBlock x:Name="InstallStatusText" FontSize="10" TextWrapping="Wrap"
-                                                   Foreground="{StaticResource TextMuted}"
-                                                   Text="{Binding [waiting_install], Source={x:Static loc:Loc.Instance}}"/>
-                                    </Border>
-                                </StackPanel>
-                            </Border>
-
-                            <!-- Versões instaladas -->
-                            <Grid Grid.Column="2">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto"/>
-                                    <RowDefinition Height="*"/>
-                                </Grid.RowDefinitions>
-                                <Grid Margin="0,0,0,10">
-                                    <TextBlock Text="{Binding [installed_versions], Source={x:Static loc:Loc.Instance}}"
-                                               Style="{StaticResource Label}" VerticalAlignment="Center" Margin="0"/>
-                                    <Button Content="{Binding [refresh], Source={x:Static loc:Loc.Instance}}"
-                                            Style="{StaticResource BtnSecondary}" HorizontalAlignment="Right"
-                                            Padding="12,6" Click="RefreshVersions_Click"/>
-                                </Grid>
-                                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                    <ItemsControl x:Name="VersionList">
-                                        <ItemsControl.ItemTemplate>
-                                            <DataTemplate>
-                                                <Border Style="{StaticResource VersionCard}">
-                                                    <Grid>
-                                                        <Grid.ColumnDefinitions>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                            <ColumnDefinition Width="*"/>
-                                                            <ColumnDefinition Width="Auto"/>
-                                                        </Grid.ColumnDefinitions>
-                                                        <Border Width="38" Height="38" CornerRadius="11" Margin="0,0,12,0"
-                                                                BorderThickness="1" BorderBrush="#7FDAFF">
-                                                            <Border.Background>
-                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                                                    <GradientStop Color="#5CBFF5" Offset="0"/>
-                                                                    <GradientStop Color="#2B8FD1" Offset="1"/>
-                                                                </LinearGradientBrush>
-                                                            </Border.Background>
-                                                            <TextBlock Text="{Binding Letter}" Foreground="White"
-                                                                       FontWeight="Black" FontSize="13"
-                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                                                        </Border>
-                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                                            <TextBlock Text="{Binding DisplayName}" Foreground="White"
-                                                                       FontWeight="SemiBold" FontSize="13"
-                                                                       TextTrimming="CharacterEllipsis"/>
-                                                            <TextBlock Text="{Binding RealId}"
-                                                                       Foreground="{StaticResource TextMuted}"
-                                                                       FontSize="10" Margin="0,2,0,0"
-                                                                       TextTrimming="CharacterEllipsis"/>
-                                                        </StackPanel>
-                                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                            <Button Tag="{Binding RealId}"
-                                                                    Content="{Binding [select], Source={x:Static loc:Loc.Instance}}"
-                                                                    Style="{StaticResource BtnSecondary}" Padding="12,6"
-                                                                    FontSize="10" Margin="0,0,6,0" Click="SelectVersion_Click"/>
-                                                            <Button Tag="{Binding RealId}" Style="{StaticResource BtnEdit}"
-                                                                    ToolTip="{Binding [rename], Source={x:Static loc:Loc.Instance}}"
-                                                                    Click="RenameVersionFromList_Click"/>
-                                                            <Button Tag="{Binding RealId}" Style="{StaticResource BtnTrash}"
-                                                                    ToolTip="{Binding [delete], Source={x:Static loc:Loc.Instance}}"
-                                                                    Click="DeleteVersion_Click"/>
-                                                        </StackPanel>
-                                                    </Grid>
-                                                </Border>
-                                            </DataTemplate>
-                                        </ItemsControl.ItemTemplate>
-                                    </ItemsControl>
-                                </ScrollViewer>
-                            </Grid>
-                        </Grid>
-                    </Grid>
+                        <TextBlock Text="Check if a new Frost Client build is available on GitHub."
+                                   Style="{StaticResource RowDesc}" Margin="0,0,0,16"/>
+                        <Border Background="#0A0F17" BorderBrush="{StaticResource EdgeInset}"
+                                BorderThickness="1.5" CornerRadius="10" Padding="16" Margin="0,0,0,12">
+                            <StackPanel>
+                                <TextBlock x:Name="UpdateTitleText" Text="You're up to date" Foreground="White"
+                                           FontSize="14" FontWeight="SemiBold"/>
+                                <TextBlock x:Name="UpdateStatusText" FontSize="11" TextWrapping="Wrap" Margin="0,6,0,0"
+                                           Foreground="{StaticResource TextMuted}"
+                                           Text="You're on the latest version."/>
+                            </StackPanel>
+                        </Border>
+                        <ProgressBar x:Name="UpdateProgress" Height="4" Visibility="Collapsed" IsIndeterminate="True"
+                                     Foreground="#5CC8FF" Background="#0C1018" BorderThickness="0" Margin="0,0,0,12"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                            <Button x:Name="UpdateLaterButton" Content="Later" Style="{StaticResource BtnSecondary}"
+                                    MinWidth="90" Margin="0,0,10,0" Click="CloseUpdates_Click"/>
+                            <Button x:Name="CheckUpdateButton" Content="Check for updates"
+                                    Style="{StaticResource BtnSecondary}" Margin="0,0,10,0" Click="CheckForUpdate_Click"/>
+                            <Button x:Name="DownloadUpdateButton" Content="Update now"
+                                    Style="{StaticResource BtnPrimary}" MinWidth="110"
+                                    Visibility="Collapsed" Click="DownloadUpdate_Click"/>
+                        </StackPanel>
+                    </StackPanel>
                 </Border>
             </Grid>
 

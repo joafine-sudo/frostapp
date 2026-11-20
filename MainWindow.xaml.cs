@@ -25,8 +25,23 @@ namespace FrostClient;
 // ─────────────────────────────────────────────────────────────
 // DATA MODELS
 // ─────────────────────────────────────────────────────────────
-public sealed class VersionEntry
+public sealed class VersionEntry : System.ComponentModel.INotifyPropertyChanged
 {
+    // Drives the "selected" look of the cards on the Versions page.
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public string Badge { get; set; } = "";
     public string RealId { get; }              // Actual version folder / ID
     public string DisplayName { get; set; }    // Custom display name (or the same as RealId)
     public string Letter => DisplayName.Length > 0 ? DisplayName[0].ToString().ToUpperInvariant() : "?";
@@ -97,7 +112,6 @@ public partial class MainWindow : Window
     private List<VersionEntry> _versions = new();
     private List<AccountEntry> _accounts = new();
     private string? _pendingConfirmAccountId;
-    private string? _renamingVersionId;
 
     // Prevents an old avatar request from replacing the current account avatar.
     private int _profileRequestId;
@@ -112,6 +126,9 @@ public partial class MainWindow : Window
     private const string DiscordInviteCode = "We6xFMA8uY";
     private System.Windows.Threading.DispatcherTimer? _statsTimer;
 
+    // ── Updates ──────────────────────────────────────────────
+    private FrostUpdater.UpdateCheckResult? _pendingUpdate;
+
     // ── Window chrome / fullscreen state ─────────────────────
     private bool _isFullscreen;
     private Rect _restoreBounds;
@@ -123,7 +140,7 @@ public partial class MainWindow : Window
         try
         {
             _loginHandler = JELoginHandlerBuilder.BuildDefault();
-            Loc.SetLanguage(Loc.DetectSystemLanguage());
+            Loc.SetLanguage("en-GB");
             Loc.LanguageChanged += RefreshLocalizedTexts;
             InitializeComponent();
             LoadSettings();
@@ -217,15 +234,116 @@ public partial class MainWindow : Window
         catch (Exception ex) { Debug.WriteLine("DiscordStats: " + ex.Message); }
     }
 
+    // Silent check on startup: finds out if an update exists but never downloads it.
+    // The person still has to open Settings and press Download to actually install it.
     private async Task CheckForLauncherUpdateAsync()
     {
         try
         {
-            await FrostUpdater.CheckAndUpdateAsync();
+            _pendingUpdate = await FrostUpdater.CheckForUpdateAsync();
+            ShowUpdateStatus(_pendingUpdate);
         }
         catch (Exception ex)
         {
             Debug.WriteLine("Updater: " + ex.Message);
+        }
+    }
+
+    private void ShowUpdateStatus(FrostUpdater.UpdateCheckResult result)
+    {
+        bool available = result.UpdateAvailable;
+
+        if (UpdateDot != null) UpdateDot.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+        if (DownloadUpdateButton != null)
+            DownloadUpdateButton.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
+
+        if (UpdateTitleText != null)
+            UpdateTitleText.Text = available ? "A new version is available"
+                : result.Error != null ? "Could not check for updates"
+                : "You're up to date";
+
+        if (UpdateStatusText != null)
+            UpdateStatusText.Text = available
+                ? "Do you want to update Frost Client now? The launcher will restart."
+                : result.Error ?? "You're on the latest version of Frost Client.";
+    }
+
+    private void SetUpdateBusy(bool busy, string? title = null, string? detail = null)
+    {
+        if (UpdateProgress != null)
+            UpdateProgress.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+        if (busy)
+        {
+            if (title != null && UpdateTitleText != null) UpdateTitleText.Text = title;
+            if (detail != null && UpdateStatusText != null) UpdateStatusText.Text = detail;
+        }
+    }
+
+    private async Task RunUpdateCheckAsync()
+    {
+        if (CheckUpdateButton != null) CheckUpdateButton.IsEnabled = false;
+        if (DownloadUpdateButton != null) DownloadUpdateButton.Visibility = Visibility.Collapsed;
+        SetUpdateBusy(true, "Checking for updates...", "Looking for a new build on GitHub.");
+
+        try
+        {
+            _pendingUpdate = await FrostUpdater.CheckForUpdateAsync();
+            ShowUpdateStatus(_pendingUpdate);
+        }
+        catch (Exception ex)
+        {
+            if (UpdateTitleText != null) UpdateTitleText.Text = "Could not check for updates";
+            if (UpdateStatusText != null) UpdateStatusText.Text = ex.Message;
+        }
+        finally
+        {
+            SetUpdateBusy(false);
+            if (CheckUpdateButton != null) CheckUpdateButton.IsEnabled = true;
+        }
+    }
+
+    private async void OpenUpdates_Click(object s, RoutedEventArgs e)
+    {
+        UpdateOverlay.Visibility = Visibility.Visible;
+        try
+        {
+            if (_pendingUpdate != null && _pendingUpdate.Error == null) ShowUpdateStatus(_pendingUpdate);
+            else await RunUpdateCheckAsync();
+        }
+        catch (Exception ex) { Debug.WriteLine("OpenUpdates: " + ex.Message); }
+    }
+
+    private void CloseUpdates_Click(object s, RoutedEventArgs e) => UpdateOverlay.Visibility = Visibility.Collapsed;
+
+    private async void CheckForUpdate_Click(object s, RoutedEventArgs e)
+    {
+        try { await RunUpdateCheckAsync(); }
+        catch (Exception ex) { Debug.WriteLine("CheckForUpdate: " + ex.Message); }
+    }
+
+    private async void DownloadUpdate_Click(object s, RoutedEventArgs e)
+    {
+        if (_pendingUpdate == null || !_pendingUpdate.UpdateAvailable) return;
+
+        if (DownloadUpdateButton != null) DownloadUpdateButton.IsEnabled = false;
+        if (CheckUpdateButton != null) CheckUpdateButton.IsEnabled = false;
+        if (UpdateLaterButton != null) UpdateLaterButton.IsEnabled = false;
+        SetUpdateBusy(true, "Downloading update...", "The launcher will restart when it finishes.");
+
+        try
+        {
+            // On success this replaces the executable and calls Environment.Exit itself;
+            // it only returns here if something went wrong.
+            await FrostUpdater.DownloadAndApplyUpdateAsync(_pendingUpdate);
+        }
+        catch (Exception ex)
+        {
+            SetUpdateBusy(false);
+            if (UpdateTitleText != null) UpdateTitleText.Text = "Update failed";
+            if (UpdateStatusText != null) UpdateStatusText.Text = ex.Message;
+            if (DownloadUpdateButton != null) DownloadUpdateButton.IsEnabled = true;
+            if (CheckUpdateButton != null) CheckUpdateButton.IsEnabled = true;
+            if (UpdateLaterButton != null) UpdateLaterButton.IsEnabled = true;
         }
     }
 
@@ -234,34 +352,48 @@ public partial class MainWindow : Window
     // ─────────────────────────────────────────────────────────
     private async void Window_Loaded(object sender, RoutedEventArgs e)
     {
-        _ = CheckForLauncherUpdateAsync();
-        StartDiscordStats();
-
-        RenderAccounts();
-        await RestoreActiveAccountAsync();
-        UpdateProfileUI();
-
-        // No account yet (first launch): open the account panel immediately.
-        if (_accounts.Count == 0) AccountOverlay.Visibility = Visibility.Visible;
-
-        // Extract libraries from the local ZIP right away, BEFORE any readiness check.
-        // This guarantees Forge and friends exist on disk even offline, so
-        // EnsureFrostResourcesAsync never has a reason to reach for the network.
+        // async void: any exception that escapes here kills the whole launcher,
+        // so everything is wrapped.
         try
         {
-            SetStatus("Extracting local libraries...");
-            int extracted = await ExtractLibrariesFromZipAsync();
-            _frostSetupInfo = $"Extracted {extracted} library files from frost-resources.zip (startup)";
+            _ = CheckForLauncherUpdateAsync();
+            StartDiscordStats();
+
+            RenderAccounts();
+            await RestoreActiveAccountAsync();
+            UpdateProfileUI();
+
+            // No account yet (first launch): open the account panel immediately.
+            if (_accounts.Count == 0) AccountOverlay.Visibility = Visibility.Visible;
+
+            // Only touch the ZIP when Forge is really missing (before, ALL libraries were
+            // re-extracted on every start, and a missing ZIP threw here).
+            try
+            {
+                if (!File.Exists(ForgeJarPath) &&
+                    File.Exists(Path.Combine(AppContext.BaseDirectory, "frost-resources.zip")))
+                {
+                    SetStatus("Extracting local libraries...");
+                    int extracted = await ExtractLibrariesFromZipAsync();
+                    _frostSetupInfo = $"Extracted {extracted} library files from frost-resources.zip (startup)";
+                }
+            }
+            catch (Exception ex)
+            {
+                _frostSetupInfo = "ERROR extracting libraries at startup: " + ex.Message;
+                Debug.WriteLine(_frostSetupInfo);
+            }
+
+            await EnsureFrostResourcesAsync();
+            await RefreshVersionsAsync();
+            SetStatus(Loc.T("status_ready"));
         }
         catch (Exception ex)
         {
-            _frostSetupInfo = "ERROR extracting libraries at startup: " + ex.Message;
-            Debug.WriteLine(_frostSetupInfo);
+            Debug.WriteLine("Window_Loaded: " + ex);
+            try { await RefreshVersionsAsync(); SetStatus(Loc.T("status_ready")); } catch { }
         }
 
-        await EnsureFrostResourcesAsync();
-        await RefreshVersionsAsync();
-        SetStatus(Loc.T("status_ready"));
         try { await LoadRemoteVersionsAsync(); } catch { }
     }
 
@@ -275,6 +407,7 @@ public partial class MainWindow : Window
     private void Minimize_Click(object s, RoutedEventArgs e) => WindowState = WindowState.Minimized;
     private void Close_Click(object s, RoutedEventArgs e)
     {
+        SaveSilently();
         StopDiscordStats();
         try { _discord?.ClearPresence(); _discord?.Dispose(); } catch { }
         Application.Current.Shutdown();
@@ -469,9 +602,10 @@ public partial class MainWindow : Window
         public int    ResolutionIndex { get; set; } = 0;
         public int    OnLaunchIndex   { get; set; } = 0;
         public bool   DiscordPresence { get; set; } = true;
-        // "green" = legacy green background; otherwise, the image file name (default.png, ...)
-        public string Wallpaper       { get; set; } = "green";
-        public string Language        { get; set; } = "";
+        // Fixed background — fox.jpg is the only wallpaper the launcher uses.
+        public string Wallpaper       { get; set; } = "fox.jpg";
+        public string Language        { get; set; } = "en-GB";
+        public bool LanguagePreferenceSet { get; set; } = false;
         public Dictionary<string, string> VersionNames { get; set; } = new();
 
         public List<AccountEntry> Accounts        { get; set; } = new();
@@ -488,10 +622,28 @@ public partial class MainWindow : Window
     {
         try
         {
-            if (File.Exists(_settingsFile))
-                _cfg = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(_settingsFile)) ?? new();
+            try
+            {
+                if (File.Exists(_settingsFile))
+                    _cfg = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(_settingsFile)) ?? new();
+            }
+            catch (Exception ex)
+            {
+                // Corrupt settings.json: keep a backup and start from defaults.
+                Debug.WriteLine("Settings load failed: " + ex.Message);
+                try { File.Copy(_settingsFile, _settingsFile + ".bak", overwrite: true); } catch { }
+                _cfg = new();
+            }
 
-            if (!string.IsNullOrWhiteSpace(_cfg.Language)) Loc.SetLanguage(_cfg.Language);
+            // Older builds automatically selected the Windows language and persisted it.
+            // Migrate those legacy settings to English once; later manual choices are preserved.
+            if (!_cfg.LanguagePreferenceSet || string.IsNullOrWhiteSpace(_cfg.Language))
+            {
+                _cfg.Language = "en-GB";
+                _cfg.LanguagePreferenceSet = true;
+            }
+            _cfg.VersionNames ??= new Dictionary<string, string>();
+            Loc.SetLanguage(_cfg.Language);
 
             RamSlider.Value = Math.Clamp(_cfg.RamGb, 1, 16);
             JavaPathBox.Text = _cfg.JavaPath;
@@ -500,13 +652,9 @@ public partial class MainWindow : Window
             OnLaunchBox.SelectedIndex = Math.Clamp(_cfg.OnLaunchIndex, 0, OnLaunchBox.Items.Count - 1);
             DiscordToggle.IsChecked = _cfg.DiscordPresence;
 
-            // "green" was the old option; keep compatibility without showing it in the UI.
-            if (string.Equals(_cfg.Wallpaper, "green", StringComparison.OrdinalIgnoreCase))
-                _cfg.Wallpaper = "default.png";
-
-            var match = WallpaperBox.Items.OfType<ComboBoxItem>()
-                .FirstOrDefault(i => (i.Tag as string) == _cfg.Wallpaper);
-            WallpaperBox.SelectedItem = match ?? WallpaperBox.Items.OfType<ComboBoxItem>().FirstOrDefault();
+            // fox.jpg is the only wallpaper now; force it even if an older settings.json
+            // had a different value saved (default.png, iceland.jpg, house.jpg, green).
+            _cfg.Wallpaper = "fox.jpg";
             ApplyWallpaper(_cfg.Wallpaper);
 
             _accounts = _cfg.Accounts ?? new();
@@ -597,22 +745,12 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Wallpaper_Changed(object s, SelectionChangedEventArgs e)
-    {
-        if (WallpaperBox?.SelectedItem is not ComboBoxItem { Tag: string file }) return;
-        ApplyWallpaper(file);
-        if (IsLoaded)
-        {
-            _cfg.Wallpaper = file;
-            SaveSilently();
-        }
-    }
-
     // ── LANGUAGE ─────────────────────────────────────────────
     private void Language_Changed(object s, SelectionChangedEventArgs e)
     {
         if (LanguageBox?.SelectedItem is not ComboBoxItem { Tag: string code }) return;
         _cfg.Language = code;
+        _cfg.LanguagePreferenceSet = true;
         Loc.SetLanguage(code);
         if (IsLoaded) SaveSilently();
     }
@@ -756,17 +894,21 @@ public partial class MainWindow : Window
 
     private async void SelectAccount_Click(object s, RoutedEventArgs e)
     {
-        if (s is not FrameworkElement { Tag: string id }) return;
-        var acc = _accounts.FirstOrDefault(a => a.Id == id);
-        if (acc == null) return;
+        try
+        {
+            if (s is not FrameworkElement { Tag: string id }) return;
+            var acc = _accounts.FirstOrDefault(a => a.Id == id);
+            if (acc == null) return;
 
-        _cfg.ActiveAccountId = acc.Id;
-        await RestoreActiveAccountAsync();
-        UpdateProfileUI();
-        SaveSilently();
-        RenderAccounts();
-        SetStatus(Loc.T("active_account_status", acc.DisplayName));
-        AccountOverlay.Visibility = Visibility.Collapsed;
+            _cfg.ActiveAccountId = acc.Id;
+            await RestoreActiveAccountAsync();
+            UpdateProfileUI();
+            SaveSilently();
+            RenderAccounts();
+            SetStatus(Loc.T("active_account_status", acc.DisplayName));
+            AccountOverlay.Visibility = Visibility.Collapsed;
+        }
+        catch (Exception ex) { Debug.WriteLine("SelectAccount: " + ex.Message); }
     }
 
     private void DeleteAccount_Click(object s, RoutedEventArgs e)
@@ -776,6 +918,7 @@ public partial class MainWindow : Window
         if (acc == null) return;
 
         _pendingConfirmAccountId = id;
+        _pendingConfirmVersionId = null;
         ConfirmTitle.Text = Loc.T("delete_account_q");
         ConfirmMessage.Text = Loc.T("delete_account_msg", acc.DisplayName);
         ConfirmOverlay.Visibility = Visibility.Visible;
@@ -822,12 +965,43 @@ public partial class MainWindow : Window
     // VERSIONS
     // ─────────────────────────────────────────────────────────
     private string GetDisplayName(string realId)
-        => _cfg.VersionNames.TryGetValue(realId, out var n) ? n : realId;
+        => _cfg.VersionNames != null && _cfg.VersionNames.TryGetValue(realId, out var n) ? n : realId;
+
+    // The launcher's own bundled modpack — always its own category, never "custom".
+    private static bool IsFrostClientVersion(string realId)
+        => realId.Contains("frost client", StringComparison.OrdinalIgnoreCase);
+
+    // Vanilla = Mojang's own version.json, with no "inheritsFrom" (that's how
+    // CmlLib marks Forge/Fabric/OptiFine/Quilt installs that sit on top of vanilla).
+    private bool IsVanillaVersion(string realId)
+    {
+        try
+        {
+            var path = Path.Combine(_gameDir, "versions", realId, realId + ".json");
+            if (!File.Exists(path)) return false;
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var root = doc.RootElement;
+
+            if (root.TryGetProperty("inheritsFrom", out _)) return false;
+
+            if (root.TryGetProperty("type", out var typeNode))
+            {
+                var type = typeNode.GetString();
+                return type is "release" or "snapshot" or "old_beta" or "old_alpha";
+            }
+
+            return false;
+        }
+        catch { return false; }
+    }
 
     private async Task RefreshVersionsAsync(string? selectId = null)
     {
         try
         {
+            selectId ??= GetSelectedEntry()?.RealId;
+
             var vDir = Path.Combine(_gameDir, "versions");
             Directory.CreateDirectory(vDir);
 
@@ -839,14 +1013,28 @@ public partial class MainWindow : Window
                     .OrderByDescending(n => n, StringComparer.OrdinalIgnoreCase)
                     .ToList());
 
-            _versions = ids.Select(id => new VersionEntry(id!, GetDisplayName(id!))).ToList();
+            _versions = ids.Select(id => new VersionEntry(id!, GetDisplayName(id!)) { Badge = GetVersionBadge(id!) }).ToList();
 
             if (VersionBox != null)
             {
                 VersionBox.ItemsSource   = _versions;
                 VersionBox.SelectedIndex = 0;
             }
+            // Hidden proxy: the home-screen gallery binds to this list's ItemsSource
+            // and still shows every installed version together, regardless of category.
             if (VersionList != null) VersionList.ItemsSource = _versions;
+
+            _frostVersions   = _versions.Where(v => IsFrostClientVersion(v.RealId)).ToList();
+            _vanillaVersions = _versions.Where(v => !IsFrostClientVersion(v.RealId) && IsVanillaVersion(v.RealId)).ToList();
+            _customVersions  = _versions.Where(v => !IsFrostClientVersion(v.RealId) && !IsVanillaVersion(v.RealId)).ToList();
+
+            // Keep the current tab unless it is now empty.
+            var current = _versionTab switch { "vanilla" => _vanillaVersions, "custom" => _customVersions, _ => _frostVersions };
+            if (current.Count == 0)
+                _versionTab = _frostVersions.Count > 0 ? "frost"
+                            : _vanillaVersions.Count > 0 ? "vanilla"
+                            : _customVersions.Count > 0 ? "custom" : _versionTab;
+            ApplyVersionTab();
 
             var targetEntry = (selectId != null ? _versions.FirstOrDefault(e => e.RealId == selectId) : null)
                 ?? _versions.FirstOrDefault(e => e.RealId.Contains("frost client", StringComparison.OrdinalIgnoreCase))
@@ -861,6 +1049,7 @@ public partial class MainWindow : Window
             {
                 SetPlayText(Loc.T("no_version"));
                 if (HomeVersionLabel != null) HomeVersionLabel.Text = Loc.T("install_to_start");
+                if (HeroVersionTitle != null) HeroVersionTitle.Text = Loc.T("install_to_start");
             }
         }
         catch (Exception ex) { Debug.WriteLine("RefreshVersions: " + ex.Message); }
@@ -872,11 +1061,13 @@ public partial class MainWindow : Window
     {
         SetPlayText(Loc.T("play"));
         if (HomeVersionLabel != null) HomeVersionLabel.Text = e.RealId;
+        if (HeroVersionTitle != null) HeroVersionTitle.Text = e.DisplayName;
     }
 
     private void Version_Changed(object s, SelectionChangedEventArgs e)
     {
         var entry = GetSelectedEntry();
+        foreach (var v in _versions) v.IsSelected = ReferenceEquals(v, entry);
         if (entry == null) return;
         UpdateHomeVersion(entry);
         if (!_busy && !_gameRunning) UpdatePresence("In Launcher", $"Selected {entry.DisplayName}", null);
@@ -974,12 +1165,26 @@ public partial class MainWindow : Window
                     throw new InvalidDataException(
                         "The ZIP contains an unsafe library path: " + entry.FullName);
 
+                // Already extracted: nothing to do (also avoids "file in use" errors).
+                if (File.Exists(destination) && new FileInfo(destination).Length == entry.Length)
+                {
+                    extractedFiles++;
+                    continue;
+                }
+
                 Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-                await using var input = entry.Open();
-                await using var output = new FileStream(
-                    destination, FileMode.Create, FileAccess.Write, FileShare.None,
-                    81920, useAsync: true);
-                await input.CopyToAsync(output);
+                try
+                {
+                    await using var input = entry.Open();
+                    await using var output = new FileStream(
+                        destination, FileMode.Create, FileAccess.Write, FileShare.None,
+                        81920, useAsync: true);
+                    await input.CopyToAsync(output);
+                }
+                catch (IOException) when (File.Exists(destination))
+                {
+                    // Locked by a running game: keep the copy that is already there.
+                }
                 extractedFiles++;
             }
         }
@@ -1014,10 +1219,17 @@ public partial class MainWindow : Window
                 throw new InvalidDataException("The ZIP contains an unsafe mod path: " + entry.FullName);
 
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            await using var input = entry.Open();
-            await using var output = new FileStream(
-                destination, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-            await input.CopyToAsync(output);
+            try
+            {
+                await using var input = entry.Open();
+                await using var output = new FileStream(
+                    destination, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+                await input.CopyToAsync(output);
+            }
+            catch (IOException) when (File.Exists(destination))
+            {
+                // Mod is locked by a running game: keep the existing file.
+            }
             extracted++;
         }
 
@@ -1186,18 +1398,36 @@ public partial class MainWindow : Window
             Directory.CreateDirectory(_gameDir);
             Directory.CreateDirectory(GameModsDir(realId));
 
-            // Extract the ZIP's libraries folder directly into .minecraft\libraries
-            // before the Minecraft launcher validates or starts the selected version.
-            // Fully local: no network call is made here.
-            SetStatus("Extracting libraries...");
-            int extracted = await ExtractLibrariesFromZipAsync();
-            _frostSetupInfo = $"Extracted {extracted} library files from frost-resources.zip";
+            // The bundled libraries/mods only belong to the Frost Client version.
+            // Before, EVERY version (vanilla, Fabric...) failed to launch whenever
+            // frost-resources.zip was missing, and re-extracted everything on each launch.
+            if (IsFrostClientVersion(realId))
+            {
+                SetStatus("Extracting libraries...");
+                try
+                {
+                    int extracted = await ExtractLibrariesFromZipAsync();
+                    _frostSetupInfo = $"Extracted {extracted} library files from frost-resources.zip";
+                }
+                catch (Exception ex)
+                {
+                    _frostSetupInfo = "ERROR extracting libraries: " + ex.Message;
+                    Debug.WriteLine(_frostSetupInfo);
+                }
 
-            // Extract bundled mods (if any "frost-mods.zip" is shipped) into the mods folder.
-            SetStatus("Extracting mods...");
-            int modsExtracted = await ExtractModsFromZipAsync(realId);
-            if (modsExtracted > 0)
-                _frostSetupInfo += $"; extracted {modsExtracted} mod files from frost-mods.zip";
+                SetStatus("Extracting mods...");
+                try
+                {
+                    int modsExtracted = await ExtractModsFromZipAsync(realId);
+                    if (modsExtracted > 0)
+                        _frostSetupInfo += $"; extracted {modsExtracted} mod files from frost-mods.zip";
+                }
+                catch (Exception ex)
+                {
+                    _frostSetupInfo += "; ERROR extracting mods: " + ex.Message;
+                    Debug.WriteLine(ex.Message);
+                }
+            }
 
             if (realId.Contains("frost client", StringComparison.OrdinalIgnoreCase))
             {
@@ -1229,7 +1459,7 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(javaPath) && File.Exists(javaPath))
                 options.JavaPath = javaPath;
 
-            var jvmArgs = _cfg.JavaArguments?.Trim() ?? "";
+            var jvmArgs = (_cfg.JavaArguments ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
             if (!string.IsNullOrWhiteSpace(jvmArgs))
                 options.ExtraJvmArguments = new[] { MArgument.FromCommandLine(jvmArgs) };
 
@@ -1251,7 +1481,6 @@ public partial class MainWindow : Window
             var process = await launcher.BuildProcessAsync(realId, options);
 
             process.EnableRaisingEvents = true;
-            _gameRunning = true;
 
             var logPath = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -1285,7 +1514,7 @@ public partial class MainWindow : Window
                 }
                 catch { }
 
-                Dispatcher.BeginInvoke(() =>
+                Dispatcher.InvokeAsync(() =>
                 {
                     _gameRunning = false;
                     if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
@@ -1298,6 +1527,7 @@ public partial class MainWindow : Window
                 });
             };
             process.Start();
+            _gameRunning = true;
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             SetStatus(Loc.T("starting", entry.DisplayName));
