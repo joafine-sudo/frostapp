@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -54,6 +55,36 @@ public sealed class VersionEntry : System.ComponentModel.INotifyPropertyChanged
 
     // The ComboBox uses ToString() for its collapsed display value.
     public override string ToString() => DisplayName;
+}
+
+// One tile in the Settings → Wallpaper gallery (built-in or user-added picture).
+public sealed class WallpaperOption : System.ComponentModel.INotifyPropertyChanged
+{
+    private bool _isSelected;
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected == value) return;
+            _isSelected = value;
+            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsSelected)));
+        }
+    }
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+
+    public string FileName { get; }
+    public string DisplayName { get; }
+    public string Source { get; }   // resolved file path or pack:// URI, bound to the thumbnail's ImageBrush
+    public bool IsCustom { get; }
+
+    public WallpaperOption(string fileName, string displayName, string source, bool isCustom)
+    {
+        FileName = fileName;
+        DisplayName = displayName;
+        Source = source;
+        IsCustom = isCustom;
+    }
 }
 
 // Stored account: offline or Microsoft.
@@ -602,8 +633,13 @@ public partial class MainWindow : Window
         public int    ResolutionIndex { get; set; } = 0;
         public int    OnLaunchIndex   { get; set; } = 0;
         public bool   DiscordPresence { get; set; } = true;
-        // Fixed background — fox.jpg is the only wallpaper the launcher uses.
+        // Currently selected wallpaper: either one of the built-in file names
+        // (fox.jpg, house.jpg, iceland.jpg, foxcamp.jpg, minecraftsteve.jpg)
+        // or an entry from CustomWallpapers below.
         public string Wallpaper       { get; set; } = "fox.jpg";
+        // File names (inside the user's "wallpapers" folder) of pictures the person
+        // added themselves from their own computer.
+        public List<string> CustomWallpapers { get; set; } = new();
         public string Language        { get; set; } = "en-GB";
         public bool LanguagePreferenceSet { get; set; } = false;
         public Dictionary<string, string> VersionNames { get; set; } = new();
@@ -652,9 +688,9 @@ public partial class MainWindow : Window
             OnLaunchBox.SelectedIndex = Math.Clamp(_cfg.OnLaunchIndex, 0, OnLaunchBox.Items.Count - 1);
             DiscordToggle.IsChecked = _cfg.DiscordPresence;
 
-            // fox.jpg is the only wallpaper now; force it even if an older settings.json
-            // had a different value saved (default.png, iceland.jpg, house.jpg, green).
-            _cfg.Wallpaper = "fox.jpg";
+            _cfg.CustomWallpapers ??= new List<string>();
+            if (string.IsNullOrWhiteSpace(_cfg.Wallpaper)) _cfg.Wallpaper = "fox.jpg";
+            BuildWallpaperGallery();
             ApplyWallpaper(_cfg.Wallpaper);
 
             _accounts = _cfg.Accounts ?? new();
@@ -725,10 +761,27 @@ public partial class MainWindow : Window
 
         try
         {
-            var external = Path.Combine(AppContext.BaseDirectory, fileName);
-            var uri = File.Exists(external)
-                ? new Uri(external, UriKind.Absolute)
-                : new Uri("pack://application:,,,/" + fileName, UriKind.Absolute);
+            var custom = Path.Combine(WallpapersDir, fileName);
+            var builtIn = Path.Combine(AppContext.BaseDirectory, fileName);
+            string? resolved = File.Exists(custom) ? custom : File.Exists(builtIn) ? builtIn : null;
+
+            Uri uri;
+            if (resolved != null)
+            {
+                uri = new Uri(resolved, UriKind.Absolute);
+            }
+            else
+            {
+                var packUri = new Uri("pack://application:,,,/" + fileName, UriKind.Absolute);
+                if (Application.GetResourceStream(packUri) == null)
+                {
+                    Debug.WriteLine($"Wallpaper '{fileName}' was not found next to the exe nor as an embedded resource.");
+                    WallpaperRect.Visibility = Visibility.Collapsed;
+                    WallpaperShade.Visibility = Visibility.Collapsed;
+                    return;
+                }
+                uri = packUri;
+            }
 
             var bitmap = new BitmapImage();
             bitmap.BeginInit();
@@ -744,6 +797,161 @@ public partial class MainWindow : Window
         {
             Debug.WriteLine($"Wallpaper '{fileName}' could not be loaded: {ex.Message}");
         }
+    }
+
+    // ── WALLPAPER GALLERY (Settings → Wallpaper) ─────────────
+    // These five come with the launcher; drop the matching files next to the .exe
+    // (or mark them as Resource in the project) for their thumbnails to show up.
+    private static readonly (string File, string Name)[] BuiltInWallpapers =
+    {
+        ("fox.jpg", "Fox"),
+        ("house.jpg", "House"),
+        ("iceland.jpg", "Iceland"),
+        ("foxcamp.jpg", "Fox Camp"),
+        ("minecraftsteve.jpg", "Minecraft Steve"),
+    };
+
+    private readonly ObservableCollection<WallpaperOption> _wallpapers = new();
+
+    // Pictures the user adds themselves are copied here, inside their own game folder.
+    private string WallpapersDir => Path.Combine(_gameDir, "wallpapers");
+
+    private void BuildWallpaperGallery()
+    {
+        _wallpapers.Clear();
+        var missing = new List<string>();
+
+        foreach (var (file, name) in BuiltInWallpapers)
+        {
+            var src = ResolveBuiltInWallpaperSource(file);
+            if (src != null) _wallpapers.Add(new WallpaperOption(file, name, src, isCustom: false));
+            else missing.Add(file);
+        }
+
+        foreach (var file in _cfg.CustomWallpapers.ToList())
+        {
+            var full = Path.Combine(WallpapersDir, file);
+            if (!File.Exists(full)) { _cfg.CustomWallpapers.Remove(file); continue; }
+            _wallpapers.Add(new WallpaperOption(file, Path.GetFileNameWithoutExtension(file), full, isCustom: true));
+        }
+
+        if (WallpaperGallery != null) WallpaperGallery.ItemsSource = _wallpapers;
+        UpdateWallpaperSelection();
+
+        // Surface missing built-ins right in the panel instead of a tile that silently
+        // fails to render — this is the #1 cause of "this wallpaper doesn't show up".
+        if (WallpaperStatusText != null)
+        {
+            WallpaperStatusText.Text = missing.Count == 0
+                ? ""
+                : "Could not find: " + string.Join(", ", missing)
+                  + ". Copy the file(s) next to FrostClient.exe (same folder fox.jpg is in), "
+                  + "or add them as a Resource in the project, then reopen Settings.";
+        }
+        if (missing.Count > 0)
+            Debug.WriteLine("Missing built-in wallpapers: " + string.Join(", ", missing));
+    }
+
+    // Only returns a usable source when the file genuinely exists — either loose next
+    // to the exe, or as a resource actually embedded in the assembly. Previously this
+    // blindly returned a pack:// URI even when nothing was embedded, so a missing file
+    // just showed up as an empty tile with no clue why.
+    private static string? ResolveBuiltInWallpaperSource(string fileName)
+    {
+        try
+        {
+            var external = Path.Combine(AppContext.BaseDirectory, fileName);
+            if (File.Exists(external)) return external;
+
+            var packUri = new Uri("pack://application:,,,/" + fileName, UriKind.Absolute);
+            var resourceStream = Application.GetResourceStream(packUri);
+            if (resourceStream != null)
+            {
+                resourceStream.Stream.Dispose();
+                return packUri.ToString();
+            }
+
+            return null;
+        }
+        catch { return null; }
+    }
+
+    private void UpdateWallpaperSelection()
+    {
+        foreach (var w in _wallpapers)
+            w.IsSelected = string.Equals(w.FileName, _cfg.Wallpaper, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void WallpaperOption_Click(object s, MouseButtonEventArgs e)
+    {
+        if (s is not FrameworkElement { Tag: string fileName }) return;
+        _cfg.Wallpaper = fileName;
+        UpdateWallpaperSelection();
+        ApplyWallpaper(fileName);
+        SaveSilently();
+    }
+
+    private void AddCustomWallpaper_Click(object s, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Choose a wallpaper image",
+            Filter = "Images (*.jpg;*.jpeg;*.png;*.bmp)|*.jpg;*.jpeg;*.png;*.bmp",
+            CheckFileExists = true,
+        };
+        if (dlg.ShowDialog() != true) return;
+
+        try
+        {
+            Directory.CreateDirectory(WallpapersDir);
+
+            var ext = Path.GetExtension(dlg.FileName);
+            var baseName = Path.GetFileNameWithoutExtension(dlg.FileName);
+            var safeName = new string(baseName
+                .Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' or ' ' ? c : '_')
+                .ToArray());
+            if (string.IsNullOrWhiteSpace(safeName)) safeName = "wallpaper";
+
+            var targetName = safeName + ext;
+            var targetPath = Path.Combine(WallpapersDir, targetName);
+            var i = 1;
+            while (File.Exists(targetPath))
+            {
+                targetName = $"{safeName} ({i++}){ext}";
+                targetPath = Path.Combine(WallpapersDir, targetName);
+            }
+
+            File.Copy(dlg.FileName, targetPath);
+
+            _cfg.CustomWallpapers.Add(targetName);
+            _cfg.Wallpaper = targetName;
+            BuildWallpaperGallery();
+            ApplyWallpaper(targetName);
+            SaveSilently();
+        }
+        catch (Exception ex)
+        {
+            if (WallpaperStatusText != null) WallpaperStatusText.Text = "Could not add that image: " + ex.Message;
+        }
+    }
+
+    // ── SETTINGS TABS (General / Wallpaper / Advanced) ───────
+    private void SettingsTab_Click(object s, RoutedEventArgs e)
+    {
+        if (s is not Button btn) return;
+
+        SettingsTabGeneralButton.Tag = null;
+        SettingsTabWallpaperButton.Tag = null;
+        SettingsTabAdvancedButton.Tag = null;
+        btn.Tag = "Active";
+
+        SettingsGeneralPanel.Visibility = Visibility.Collapsed;
+        SettingsWallpaperPanel.Visibility = Visibility.Collapsed;
+        SettingsAdvancedPanel.Visibility = Visibility.Collapsed;
+
+        if (btn == SettingsTabGeneralButton) SettingsGeneralPanel.Visibility = Visibility.Visible;
+        else if (btn == SettingsTabWallpaperButton) SettingsWallpaperPanel.Visibility = Visibility.Visible;
+        else if (btn == SettingsTabAdvancedButton) SettingsAdvancedPanel.Visibility = Visibility.Visible;
     }
 
     // ── LANGUAGE ─────────────────────────────────────────────

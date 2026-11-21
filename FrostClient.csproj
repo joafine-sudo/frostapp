@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+  <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
@@ -8,8 +9,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>FrostClient</AssemblyName>
     <RootNamespace>FrostClient</RootNamespace>
-    <Version>1.0.0</Version>
-    <ApplicationIcon>icon.ico</ApplicationIcon>
+    <Version>1.0.13</Version>
+<AssemblyVersion>1.0.13.0</AssemblyVersion>
+<FileVersion>1.0.13.0</FileVersion>
+<InformationalVersion>1.0.13</InformationalVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -40,6 +43,8 @@
     <Resource Include="iceland.jpg" Condition="Exists('iceland.jpg')" />
     <Resource Include="house.jpg" Condition="Exists('house.jpg')" />
     <Resource Include="fox.jpg" Condition="Exists('fox.jpg')" />
+    <Resource Include="foxcamp.jpg" Condition="Exists('foxcamp.jpg')" />
+    <Resource Include="minecraftsteve.jpg" Condition="Exists('minecraftsteve.jpg')" />
   </ItemGroup>
 
   <ItemGroup>
